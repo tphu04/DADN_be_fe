@@ -1,0 +1,99 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id        Int         @id @default(autoincrement())
+  fullname  String
+  phone     String
+  email     String      @unique
+  adminCode String
+  username  String      @unique
+  password  String
+}
+
+model User {
+  id             Int             @id @default(autoincrement())
+  fullname       String
+  username  String               @unique
+  password  String
+  email          String          @unique
+  phone          String
+  address        String
+  notifications  Notification[]
+  configurations Configuration[]
+}
+
+model Configuration {
+  id         Int         @id @default(autoincrement())
+  value      String
+  updateAt   DateTime    @default(now())
+  userId     Int
+  user       User    @relation(fields: [userId], references: [id])
+  devices    IoTDevice[]
+}
+
+model Notification {
+  id         Int       @id @default(autoincrement())
+  message    String
+  createdAt  DateTime  @default(now())
+  type       String
+  userId Int
+  user   User  @relation(fields: [userId], references: [id])
+  logData    LogData[]
+}
+
+model IoTDevice {
+  id                        Int                        @id @default(autoincrement())
+  name                      String
+  typeDevice                String
+  status                    String
+  configurationId           Int
+  configuration             Configuration              @relation(fields: [configurationId], references: [id])
+  logData                   LogData[]
+  temperatureHumiditySensor TemperatureHumiditySensor? // Trường ngược lại với TemperatureHumiditySensor
+  soilMoistureSensor        SoilMoistureSensor? // Trường ngược lại với SoilMoistureSensor
+  waterPump                 WaterPump? // Trường ngược lại với WaterPump
+}
+
+model LogData {
+  id             Int          @id @default(autoincrement())
+  value          String
+  createdAt      DateTime     @default(now())
+  deviceId       Int
+  device         IoTDevice    @relation(fields: [deviceId], references: [id])
+  notificationId Int
+  notification   Notification @relation(fields: [notificationId], references: [id])
+}
+
+model TemperatureHumiditySensor {
+  id               Int       @id @default(autoincrement())
+  temperatureValue Float
+  deviceId         Int       @unique
+  device           IoTDevice @relation(fields: [deviceId], references: [id])
+}
+
+model SoilMoistureSensor {
+  id                Int       @id @default(autoincrement())
+  soilMoistureValue Float
+  deviceId          Int       @unique
+  device            IoTDevice @relation(fields: [deviceId], references: [id])
+}
+
+model WaterPump {
+  id           Int       @id @default(autoincrement())
+  pumpCapacity Int
+  deviceId     Int       @unique
+  device       IoTDevice @relation(fields: [deviceId], references: [id])
+}
