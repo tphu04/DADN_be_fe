@@ -20,6 +20,7 @@ import ResetPassword from "./pages/ResetPassword/ResetPassword";
 
 import HomePage from "./pages/HomePage/HomePage";
 import Dashboard from "./pages/Dashboard/Dashboard";
+import DeviceDetail from "./components/DeviceDetail/DeviceDetail";
 
 // Admin
 
@@ -60,6 +61,18 @@ function App() {
             <ProtectedRoute>
               <SidebarLayout>
                 <Dashboard />
+              </SidebarLayout>
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Trang chi tiết thiết bị */}
+        <Route
+          path="/dashboard/device/:deviceId"
+          element={
+            <ProtectedRoute>
+              <SidebarLayout>
+                <DeviceDetail />
               </SidebarLayout>
             </ProtectedRoute>
           }

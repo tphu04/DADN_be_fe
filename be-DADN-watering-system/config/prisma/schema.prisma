@@ -13,26 +13,84 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum StatusType {
+  On
+  Off
+}
+
+enum DeviceType {
+  temperature_humidity
+  soil_moisture
+  pump_water
+}
+
 model Admin {
-  id        Int         @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   fullname  String
   phone     String
-  email     String      @unique
+  email     String   @unique
   adminCode String
-  username  String      @unique
+  username  String   @unique
   password  String
 }
 
 model User {
   id             Int             @id @default(autoincrement())
   fullname       String
-  username  String               @unique
-  password  String
+  username       String          @unique
+  password       String
   email          String          @unique
   phone          String
   address        String
-  notifications  Notification[]
-  configurations Configuration[]
+  notifications  Notification[]  @relation("UserNotifications")
+  configurations Configuration[] @relation("UserConfigurations")
+}
+
+model IoTDevice {
+  id                      Int                      @id @default(autoincrement())
+  deviceCode              String                   @unique
+  deviceType              DeviceType
+  status                  StatusType
+  description             String?
+  createdAt               DateTime                 @default(now())
+  mqttUsername            String?
+  mqttApiKey              String?
+  isOnline                Boolean                  @default(false)
+  lastSeen                DateTime?
+  lastSeenAt              DateTime?
+  feeds                   Feed[]                   @relation("DeviceFeeds")
+  temperatureHumidityData TemperatureHumidityData[] @relation("DeviceTemperatureHumidity")
+  soilMoistureData        SoilMoistureData[]       @relation("DeviceSoilMoisture")
+  pumpWaterData           PumpWaterData[]          @relation("DevicePumpWater")
+  configurations          Configuration[]          @relation("DeviceConfigurations")
+  logData                 LogData[]                @relation("DeviceLogs")
+  sensorData              SensorData[]             @relation("DeviceSensorData")
+}
+
+model TemperatureHumidityData {
+  id           Int       @id @default(autoincrement())
+  temperature  Float
+  humidity     Float
+  readingTime  DateTime  @default(now())
+  deviceId     Int
+  device       IoTDevice @relation("DeviceTemperatureHumidity", fields: [deviceId], references: [id])
+}
+
+model SoilMoistureData {
+  id            Int       @id @default(autoincrement())
+  moistureValue Float
+  readingTime   DateTime  @default(now())
+  deviceId      Int
+  device        IoTDevice @relation("DeviceSoilMoisture", fields: [deviceId], references: [id])
+}
+
+model PumpWaterData {
+  id          Int       @id @default(autoincrement())
+  status      String
+  pumpSpeed   Int
+  readingTime DateTime  @default(now())
+  deviceId    Int
+  device      IoTDevice @relation("DevicePumpWater", fields: [deviceId], references: [id])
 }
 
 model Configuration {
@@ -40,8 +98,9 @@ model Configuration {
   value      String
   updateAt   DateTime    @default(now())
   userId     Int
-  user       User    @relation(fields: [userId], references: [id])
-  devices    IoTDevice[]
+  user       User        @relation("UserConfigurations", fields: [userId], references: [id])
+  deviceId   Int
+  device     IoTDevice   @relation("DeviceConfigurations", fields: [deviceId], references: [id])
 }
 
 model Notification {
@@ -49,22 +108,9 @@ model Notification {
   message    String
   createdAt  DateTime  @default(now())
   type       String
-  userId Int
-  user   User  @relation(fields: [userId], references: [id])
-  logData    LogData[]
-}
-
-model IoTDevice {
-  id                        Int                        @id @default(autoincrement())
-  name                      String
-  typeDevice                String
-  status                    String
-  configurationId           Int
-  configuration             Configuration              @relation(fields: [configurationId], references: [id])
-  logData                   LogData[]
-  temperatureHumiditySensor TemperatureHumiditySensor? // Trường ngược lại với TemperatureHumiditySensor
-  soilMoistureSensor        SoilMoistureSensor? // Trường ngược lại với SoilMoistureSensor
-  waterPump                 WaterPump? // Trường ngược lại với WaterPump
+  userId     Int
+  user       User      @relation("UserNotifications", fields: [userId], references: [id])
+  logData    LogData[] @relation("NotificationLogs")
 }
 
 model LogData {
@@ -72,28 +118,30 @@ model LogData {
   value          String
   createdAt      DateTime     @default(now())
   deviceId       Int
-  device         IoTDevice    @relation(fields: [deviceId], references: [id])
+  device         IoTDevice    @relation("DeviceLogs", fields: [deviceId], references: [id])
   notificationId Int
-  notification   Notification @relation(fields: [notificationId], references: [id])
+  notification   Notification @relation("NotificationLogs", fields: [notificationId], references: [id])
 }
 
-model TemperatureHumiditySensor {
-  id               Int       @id @default(autoincrement())
-  temperatureValue Float
-  deviceId         Int       @unique
-  device           IoTDevice @relation(fields: [deviceId], references: [id])
+model Feed {
+  id          Int          @id @default(autoincrement())
+  name        String
+  feedKey     String
+  minValue    Float?
+  maxValue    Float?
+  lastValue   Float?
+  deviceId    Int
+  device      IoTDevice    @relation("DeviceFeeds", fields: [deviceId], references: [id])
+  sensorData  SensorData[] @relation("FeedSensorData")
 }
 
-model SoilMoistureSensor {
-  id                Int       @id @default(autoincrement())
-  soilMoistureValue Float
-  deviceId          Int       @unique
-  device            IoTDevice @relation(fields: [deviceId], references: [id])
-}
-
-model WaterPump {
-  id           Int       @id @default(autoincrement())
-  pumpCapacity Int
-  deviceId     Int       @unique
-  device       IoTDevice @relation(fields: [deviceId], references: [id])
+model SensorData {
+  id          Int       @id @default(autoincrement())
+  value       Float
+  timestamp   DateTime  @default(now())
+  isAbnormal  Boolean   @default(false)
+  deviceId    Int
+  device      IoTDevice @relation("DeviceSensorData", fields: [deviceId], references: [id], map: "sensordata_device_fk")
+  feedId      Int
+  feed        Feed      @relation("FeedSensorData", fields: [feedId], references: [id])
 }

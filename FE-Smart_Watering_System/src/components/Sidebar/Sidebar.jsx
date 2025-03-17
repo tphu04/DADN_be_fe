@@ -11,78 +11,19 @@ import IconNotification from "../../assets/images/icon-notification.svg";
 import IconConfig from "../../assets/images/icon-config.png";
 import IconProfile from "../../assets/images/icon-profile.svg";
 import IconHelp from "../../assets/images/icon-help.svg";
+import { IoIosLogOut } from "react-icons/io";
+
+// Auth Context
+import { useAuth } from "../../context/AuthContext";
 
 const Sidebar = () => {
+  const { logout } = useAuth();
+
   const getNavLinkClass = (isActive) =>
     `flex items-center space-x-[8px] p-[8px] w-full hover:bg-[#9CDBA6] rounded-[2px] hover:shadow-[4px_4px_2px_0px_#52ACFF] transition-all
     ${isActive ? "bg-[#9CDBA6] shadow-[4px_4px_2px_0px_#52ACFF]" : ""}`;
 
-  const navActivated = `bg-[#9CDBA6] rounded-[10px] shadow-[4px_4px_2px_0px_#52ACFF]`;
   return (
-    // <div className="p-4 w-full">
-    //   {/* Logo HCMUT */}
-    //   <div className="flex flex-row items-center my-2">
-    //     <div className="rounded-full bg-white p-1 w-16 h-16">
-    //       <img
-    //         src={Logo}
-    //         alt="Logo HCMUT"
-    //         className="h-full w-full rounded-full object-cover
-    //         "
-    //       />
-    //     </div>
-    //     <div className="text-[25px] font-secondary font-semibold mx-4">
-    //       HCMUT
-    //     </div>
-    //   </div>
-
-    //   {/* Path Link */}
-    //   <div className="my-10 flex flex-col items-center justify-center gap-4 font-secondary font-medium text-[17px]">
-    //     <NavLink to="/" className={({ isActive }) => getNavLinkClass(isActive)}>
-    //       <GoHome size={22} />
-    //       <div>Dashboard</div>
-    //     </NavLink>
-
-    //     {/* role ADMIN  */}
-    //     <NavLink
-    //       to="/admin/all-classes"
-    //       className={({ isActive }) => getNavLinkClass(isActive)}
-    //     >
-    //       <IoLibraryOutline size={20} />
-    //       <div>All classes</div>
-    //     </NavLink>
-
-    //     {/* role STUDENT  */}
-    //     <NavLink
-    //       to="/student/my-courses"
-    //       className={({ isActive }) => getNavLinkClass(isActive)}
-    //     >
-    //       <IoLibraryOutline size={20} />
-    //       <div>My courses</div>
-    //     </NavLink>
-
-    //     <NavLink
-    //       to="/student/grade"
-    //       className={({ isActive }) => getNavLinkClass(isActive)}
-    //     >
-    //       Grade
-    //     </NavLink>
-    //     <NavLink
-    //       to="/notifications"
-    //       className={({ isActive }) => getNavLinkClass(isActive)}
-    //     >
-    //       Notifications
-    //     </NavLink>
-
-    //     <NavLink
-    //       to="/settings"
-    //       className={({ isActive }) => getNavLinkClass(isActive)}
-    //     >
-    //       <IoSettingsOutline size={22} />
-    //       <div>Settings</div>
-    //     </NavLink>
-    //   </div>
-    // </div>
-
     <>
       <div className="px-[20px] py-[30px] w-[290px] bg-white flex flex-col justify-between">
         <div>
@@ -153,6 +94,7 @@ const Sidebar = () => {
             />
             <div>Profile Settings</div>
           </NavLink>
+
           <NavLink
             to="/help"
             className={({ isActive }) => getNavLinkClass(isActive)}
@@ -164,6 +106,16 @@ const Sidebar = () => {
             />
             <div>Help</div>
           </NavLink>
+
+          <div className="w-full text-white font-medium mt-4 flex items-center justify-center">
+            <button
+              className="py-2 px-8 rounded-lg bg-red-600 hover:bg-red-700 transition-all flex items-center justify-center space-x-2"
+              onClick={logout}
+            >
+              <IoIosLogOut size={20} />
+              <div>Logout</div>
+            </button>
+          </div>
         </div>
       </div>
     </>

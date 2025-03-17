@@ -23,7 +23,7 @@ const SignUp = () => {
     email: "",
     phone: "",
     fullname: "",
-    address: ""
+    address: "",
   });
 
   const handleChange = (e) => {
@@ -65,7 +65,9 @@ const SignUp = () => {
       }
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Đăng ký không thành công!");
+      toast.error(
+        error?.response?.data?.message || "Đăng ký không thành công!"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -102,7 +104,7 @@ const SignUp = () => {
         {/* Form signup  */}
         <div
           className="absolute top-1/2 left-1/2 bg-white transform -translate-x-1/2 -translate-y-1/2
-            w-[532px] h-[618px] px-[95px] py-[28px] rounded-[10px] border border-black 
+            w-[532px] px-[95px] py-[28px] rounded-[10px] border border-black 
             shadow-[6px_6px_0px_0px_#9CDBA6] font-poppins"
         >
           {/* Title  */}
@@ -123,7 +125,7 @@ const SignUp = () => {
                 Username
               </div>
               <input
-                className="w-full bg-[#F5F5F5] outline-none"
+                className="w-full px-[15px] py-[8px] rounded-[11px] shadow-md border border-[#D9D9D9] outline-none"
                 name="username"
                 type="text"
                 placeholder="Enter Username"
@@ -137,7 +139,7 @@ const SignUp = () => {
               E-mail
             </div>
             <input
-              className="w-full bg-[#F5F5F5] outline-none"
+              className="w-full px-[15px] py-[8px] rounded-[11px] shadow-md border border-[#D9D9D9] outline-none"
               name="email"
               type="email"
               placeholder="Enter E-mail"
@@ -151,7 +153,7 @@ const SignUp = () => {
             </div>
             <div className="relative">
               <input
-                className="w-full bg-[#F5F5F5] outline-none"
+                className="w-full px-[15px] py-[8px] rounded-[11px] shadow-md border border-[#D9D9D9] outline-none"
                 name="password"
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter Password"
@@ -176,7 +178,7 @@ const SignUp = () => {
             </div>
             <div className="relative">
               <input
-                className="w-full bg-[#F5F5F5] outline-none"
+                className="w-full px-[15px] py-[8px] rounded-[11px] shadow-md border border-[#D9D9D9] outline-none"
                 name="confirmPassword"
                 type={showConfirmPassword ? "text" : "password"}
                 placeholder="Confirm Password"
@@ -200,7 +202,7 @@ const SignUp = () => {
               Phone
             </div>
             <input
-              className="w-full bg-[#F5F5F5] outline-none"
+              className="w-full px-[15px] py-[8px] rounded-[11px] shadow-md border border-[#D9D9D9] outline-none"
               name="phone"
               type="text"
               placeholder="Enter Phone Number"
@@ -213,7 +215,7 @@ const SignUp = () => {
               Full Name
             </div>
             <input
-              className="w-full bg-[#F5F5F5] outline-none"
+              className="w-full px-[15px] py-[8px] rounded-[11px] shadow-md border border-[#D9D9D9] outline-none"
               name="fullname"
               type="text"
               placeholder="Enter Full Name"
@@ -226,7 +228,7 @@ const SignUp = () => {
               Address
             </div>
             <input
-              className="w-full bg-[#F5F5F5] outline-none"
+              className="w-full px-[15px] py-[8px] rounded-[11px] shadow-md border border-[#D9D9D9] outline-none"
               name="address"
               type="text"
               placeholder="Enter Address (Optional)"

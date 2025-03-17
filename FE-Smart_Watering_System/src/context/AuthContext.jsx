@@ -2,7 +2,13 @@ import { useContext, createContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
-import { login as loginApi, logout as logoutApi, getUserProfile, isAuthenticated, getUser } from "../services/AuthServices";
+import {
+  login as loginApi,
+  logout as logoutApi,
+  getUserProfile,
+  isAuthenticated,
+  getUser,
+} from "../services/AuthServices";
 
 const AuthContext = createContext();
 
@@ -48,7 +54,9 @@ const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error("Login error:", error);
-      toast.error(error?.response?.data?.message || "Đăng nhập không thành công!");
+      toast.error(
+        error?.response?.data?.message || "Đăng nhập không thành công!"
+      );
       return false;
     } finally {
       setLoading(false);
@@ -63,7 +71,7 @@ const AuthProvider = ({ children }) => {
       setUser(null);
       setToken("");
       navigate("/login");
-      toast.success("Đăng xuất thành công!");
+      toast.success("Logout successful");
     } catch (error) {
       console.error("Logout error:", error);
       // Vẫn xóa dữ liệu người dùng ngay cả khi API gọi thất bại
@@ -81,14 +89,14 @@ const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider 
-      value={{ 
-        token, 
-        user, 
+    <AuthContext.Provider
+      value={{
+        token,
+        user,
         loading,
         login,
         logout,
-        isLoggedIn
+        isLoggedIn,
       }}
     >
       {children}

@@ -1,57 +1,61 @@
-const express = require('express');
-const app = express();
-const bodyParser = require('body-parser');
-const cors = require('cors');
-
-// Đảm bảo cấu hình CORS cho tất cả các domain
-app.use(cors());
-
-// Middleware xử lý JSON và URL encoded data
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-
-// Load config
 require('dotenv').config();
-const connection = require('../config/database');
-const routes = require('./routes/index.js');
+const express = require('express');
+const cors = require('cors');
+const routes = require('./routes');
+const iotDeviceService = require('./services/iotDeviceService');
+const mqttService = require('./services/mqtt.service');
 
-const port = process.env.PORT || 3000;
-const host = process.env.HOST_NAME || 'localhost';
+const app = express();
 
-// Thêm middleware debugging để xem tất cả requests
-app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-    next();
-});
+// Cấu hình CORS chi tiết
+app.use(cors({
+    origin: ['http://localhost:3001', 'http://127.0.0.1:3001', 'http://localhost:5173', 'http://127.0.0.1:5173'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+}));
 
-// Route test cơ bản ở đầu (trước các routes khác)
-app.get('/', (req, res) => {
-    res.send('Smart Watering System API is running!');
-});
+app.use(express.json());
 
-// Route test API
-app.get('/test', (req, res) => {
-    res.json({ message: 'API test successful!' });
-});
-
-// API routes
+// Routes
 app.use('/api', routes);
 
-// Middleware xử lý lỗi 404 - Đặt sau tất cả các routes
-app.use((req, res) => {
-    console.log(`[404] Route not found: ${req.method} ${req.url}`);
-    res.status(404).json({ 
-        success: false,
-        message: 'Route not found' 
-    });
+// Thêm route test để kiểm tra server
+app.get('/test', (req, res) => {
+    res.json({ message: 'Server is working!' });
 });
 
-// Khởi động server
-app.listen(port, () => {
-    console.log(`=============================================`);
-    console.log(`Server is running on http://${host}:${port}`);
-    console.log(`Test the root endpoint: http://${host}:${port}/`);
-    console.log(`Test the API: http://${host}:${port}/test`);
-    console.log(`Test auth: http://${host}:${port}/api/auth/register`);
-    console.log(`=============================================`);
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ error: 'Internal server error' });
 });
+
+// Handle 404
+app.use((req, res) => {
+    res.status(404).json({ success: false, message: 'Route not found' });
+});
+
+const PORT = process.env.PORT || 3000;
+
+// Initialize devices and start server
+async function startServer() {
+    try {
+        // Khởi tạo thiết bị khi khởi động server
+        await iotDeviceService.initializeDevices();
+        
+        // Thiết lập kiểm tra thiết bị hoạt động mỗi 1 phút
+        setInterval(async () => {
+            await mqttService.checkDevicesActivity();
+        }, 60000); // 60000 ms = 1 phút
+        
+        app.listen(PORT, () => {
+            console.log(`Server đang chạy trên cổng ${PORT}`);
+        });
+    } catch (error) {
+        console.error('Lỗi khởi động server:', error);
+        process.exit(1);
+    }
+}
+
+startServer();

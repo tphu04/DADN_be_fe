@@ -1,6 +1,8 @@
 const express = require('express');
 const authRoutes = require('./authRoutes');
 const userRoutes = require('./userRoutes');
+const sensorRoutes = require('./sensorRoutes');
+const deviceRoutes = require('./deviceRoutes');
 
 const routes = express.Router();
 
@@ -14,5 +16,7 @@ routes.use('/auth', authRoutes);
 
 // Các routes cần xác thực
 routes.use('/users', userRoutes);
+routes.use('/sensors', sensorRoutes);
+routes.use('/devices', deviceRoutes);
 
 module.exports = routes;
