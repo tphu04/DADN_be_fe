@@ -223,6 +223,66 @@ const deviceController = {
                 error: error.message
             });
         }
+    },
+
+    // Sửa phương thức lấy thiết bị theo ID
+    async getDeviceById(req, res) {
+        try {
+            const { id } = req.params;
+            
+            // Lấy thông tin thiết bị
+            const device = await prisma.ioTDevice.findUnique({
+                where: { id: parseInt(id) },
+                include: {
+                    feeds: true
+                }
+            });
+            
+            if (!device) {
+                return res.status(404).json({ message: 'Không tìm thấy thiết bị' });
+            }
+            
+            // Lấy dữ liệu mới nhất dựa trên loại thiết bị
+            let latestData = null;
+            
+            if (device.deviceType === 'temperature_humidity') {
+                latestData = await prisma.temperatureHumidityData.findFirst({
+                    where: { deviceId: device.id },
+                    orderBy: { readingTime: 'desc' }
+                });
+            } else if (device.deviceType === 'soil_moisture') {
+                latestData = await prisma.soilMoistureData.findFirst({
+                    where: { deviceId: device.id },
+                    orderBy: { readingTime: 'desc' }
+                });
+            }
+            
+            // Lấy lịch sử dữ liệu (100 bản ghi gần nhất)
+            let historicalData = [];
+            
+            if (device.deviceType === 'temperature_humidity') {
+                historicalData = await prisma.temperatureHumidityData.findMany({
+                    where: { deviceId: device.id },
+                    orderBy: { readingTime: 'desc' },
+                    take: 100
+                });
+            } else if (device.deviceType === 'soil_moisture') {
+                historicalData = await prisma.soilMoistureData.findMany({
+                    where: { deviceId: device.id },
+                    orderBy: { readingTime: 'desc' },
+                    take: 100
+                });
+            }
+            
+            return res.json({
+                device,
+                latestData,
+                historicalData
+            });
+        } catch (error) {
+            console.error('Lỗi khi lấy thiết bị:', error);
+            return res.status(500).json({ message: error.message });
+        }
     }
 };
 

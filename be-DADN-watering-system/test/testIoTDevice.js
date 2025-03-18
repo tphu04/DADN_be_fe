@@ -51,17 +51,34 @@ async function testIoTDevice() {
         
         // Test data cho thiết bị mới - cảm biến đo độ ẩm đất
         
+        // const newDevice = {
+        //     deviceCode: "SoilMoistureSensor_" + Date.now(),
+        //     deviceType: "soil_moisture",
+        //     description: "Cảm biến đo độ ẩm đất",
+        //     status: "On",
+        //     mqttUsername: process.env.MQTT_USERNAME,
+        //     mqttApiKey: process.env.MQTT_API_KEY,
+        //     feeds: [
+        //         {
+        //             name: "Độ ẩm đất",
+        //             feedKey: "doamdat",
+        //             minValue: 0,
+        //             maxValue: 100
+        //         }
+        //     ]
+        // };
+
         const newDevice = {
-            deviceCode: "SoilMoistureSensor_" + Date.now(),
-            deviceType: "soil_moisture",
-            description: "Cảm biến đo độ ẩm đất",
+            deviceCode: "PumpWater_" + Date.now(),
+            deviceType: "pump_water",
+            description: "Máy bơm nước",
             status: "On",
             mqttUsername: process.env.MQTT_USERNAME,
             mqttApiKey: process.env.MQTT_API_KEY,
             feeds: [
                 {
-                    name: "Độ ẩm đất",
-                    feedKey: "doamdat",
+                    name: "Máy bơm nước",
+                    feedKey: "maybom",
                     minValue: 0,
                     maxValue: 100
                 }
@@ -94,9 +111,9 @@ async function testIoTDevice() {
     }
 }
 
-
-async function testdeleteDevice() {
-    await iotDeviceService.deleteDevice(3)
-}
-// Chạy test
-testdeleteDevice()
+testIoTDevice()
+// async function testdeleteDevice() {
+//     await iotDeviceService.deleteDevice(3)
+// }
+// // Chạy test
+// testdeleteDevice()

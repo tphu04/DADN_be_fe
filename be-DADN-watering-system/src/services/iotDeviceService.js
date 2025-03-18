@@ -7,27 +7,55 @@ class IoTDeviceService {
      */
     async initializeDevices() {
         try {
-            // Lấy tất cả thiết bị từ database
-            const devices = await prisma.ioTDevice.findMany({
-                include: { feeds: true }
-            });
-            
+            const devices = await this.getAllDevices();
             console.log(`Tìm thấy ${devices.length} thiết bị trong database`);
             
-            // Khởi tạo kết nối MQTT cho từng thiết bị có status = On
-            let connectedCount = 0;
+            // Kiểm tra kết nối MQTT
+            if (!mqttService.checkConnection()) {
+                console.log('MQTT chưa kết nối, đang đợi kết nối trước khi khởi tạo thiết bị...');
+                
+                // Đợi kết nối MQTT
+                await new Promise((resolve) => {
+                    // Đăng ký sự kiện connect
+                    mqttService.client.once('connect', () => {
+                        console.log('MQTT đã kết nối, tiếp tục khởi tạo thiết bị');
+                        resolve();
+                    });
+                    
+                    // Đặt timeout để không đợi mãi
+                    setTimeout(() => {
+                        console.log('Hết thời gian đợi MQTT, tiếp tục khởi tạo');
+                        resolve();
+                    }, 10000); // 10 giây
+                });
+            }
+            
+            // Kiểm tra lại sau khi đợi
+            if (!mqttService.checkConnection()) {
+                console.warn('MQTT vẫn chưa kết nối sau khi đợi, thiết bị có thể không được khởi tạo đúng');
+            } else {
+                console.log('MQTT đã kết nối, bắt đầu khởi tạo thiết bị');
+            }
+            
+            // Khởi tạo từng thiết bị
+            let initializedCount = 0;
             for (const device of devices) {
-                if (device.status === 'On') {
-                    const connected = await mqttService.connectDevice(device);
-                    if (connected) connectedCount++;
-                } else {
-                    console.log(`Thiết bị ${device.deviceCode} đang tắt, không kết nối MQTT`);
+                // Đợi giữa các lần kết nối để tránh quá tải
+                if (initializedCount > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                
+                const success = await mqttService.connectDevice(device);
+                if (success) {
+                    initializedCount++;
                 }
             }
             
-            console.log(`Đã khởi tạo ${connectedCount}/${devices.length} thiết bị`);
+            console.log(`Đã khởi tạo ${initializedCount}/${devices.length} thiết bị`);
+            return devices;
         } catch (error) {
             console.error('Lỗi khởi tạo thiết bị:', error);
+            throw error;
         }
     }
 

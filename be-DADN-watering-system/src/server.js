@@ -4,6 +4,8 @@ const cors = require('cors');
 const routes = require('./routes');
 const iotDeviceService = require('./services/iotDeviceService');
 const mqttService = require('./services/mqtt.service');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const app = express();
 
@@ -41,15 +43,42 @@ const PORT = process.env.PORT || 3000;
 // Initialize devices and start server
 async function startServer() {
     try {
-        // Khởi tạo thiết bị khi khởi động server
+        // Đợi MQTT kết nối thành công trước
+        console.log('Đang đợi kết nối MQTT...');
+        await mqttService.waitForConnection(20000); // Đợi tối đa 20 giây
+        
+        // Sau khi MQTT đã kết nối, khởi tạo thiết bị
+        console.log('Bắt đầu khởi tạo thiết bị');
         await iotDeviceService.initializeDevices();
         
-        // Thiết lập kiểm tra thiết bị hoạt động mỗi 1 phút
-        setInterval(async () => {
-            await mqttService.checkDevicesActivity();
-        }, 60000); // 60000 ms = 1 phút
+        // Đăng ký nhận dữ liệu từ tất cả feeds
+        await mqttService.subscribeToAllFeeds();
         
-        app.listen(PORT, () => {
+        // Tạo HTTP server từ Express app
+        const server = http.createServer(app);
+        
+        // Tạo Socket.IO server
+        const io = new Server(server, {
+            cors: {
+                origin: '*', // Đặt origin phù hợp với frontend của bạn
+                methods: ['GET', 'POST']
+            }
+        });
+        
+        // Xử lý kết nối Socket.IO
+        io.on('connection', (socket) => {
+            console.log('Client kết nối: ' + socket.id);
+            
+            socket.on('disconnect', () => {
+                console.log('Client ngắt kết nối: ' + socket.id);
+            });
+        });
+        
+        // Sửa MQTT service để phát sóng dữ liệu mới qua Socket.IO
+        // mqttService.setSocketIO(io);
+        
+        // Khởi động HTTP server
+        server.listen(PORT, () => {
             console.log(`Server đang chạy trên cổng ${PORT}`);
         });
     } catch (error) {

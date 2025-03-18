@@ -1,377 +1,461 @@
 const mqtt = require('mqtt');
 const prisma = require('../../config/database');
+require('dotenv').config();
+
+// Lưu các giá trị đã xử lý gần đây để tránh lặp lại
+const processedValues = new Map();
 
 class MQTTService {
     constructor() {
+        console.log('MQTTService constructor');
         this.deviceConnections = new Map();
+        this.isConnected = false;
+        this.feeds = {};
+        
+        // Lấy thông tin kết nối từ biến môi trường
+        this.username = process.env.MQTT_USERNAME || 'leduccuongks0601';
+        this.password = process.env.MQTT_API_KEY || 'aio_SNIo23qcDoXgGUptXfEwQk73o40p';
+        this.broker = process.env.MQTT_BROKER || 'io.adafruit.com';
+        
+        // Hiển thị thông tin kết nối (che password)
+        console.log(`Đang kết nối tới MQTT broker: mqtt://${this.username}:***@${this.broker}`);
+        
+        // Khởi tạo kết nối MQTT
+        try {
+            this.client = mqtt.connect(`mqtt://${this.username}:${this.password}@${this.broker}`, {
+                clientId: 'backend_' + Math.random().toString(16).substring(2, 8),
+                clean: true,
+                connectTimeout: 30000,
+                reconnectPeriod: 5000,
+                keepalive: 60
+            });
+            
+            // Thiết lập các event handlers
+            this._setupEventHandlers();
+        } catch (error) {
+            console.error('Lỗi khởi tạo MQTT client:', error);
+        }
     }
+    
+    _setupEventHandlers() {
+        // Xử lý sự kiện kết nối
+        this.client.on('connect', () => {
+            console.log('✅ ĐÃ KẾT NỐI THÀNH CÔNG tới MQTT broker!');
+            this.isConnected = true;
+        });
+        
+        // Xử lý sự kiện reconnect
+        this.client.on('reconnect', () => {
+            console.log('Đang thử kết nối lại với MQTT broker...');
+        });
+        
+        // Xử lý sự kiện error
+        this.client.on('error', (err) => {
+            console.error('❌ Lỗi kết nối MQTT:', err.message);
+            this.isConnected = false;
+        });
+        
+        // Xử lý sự kiện close
+        this.client.on('close', () => {
+            console.log('Kết nối MQTT đã đóng');
+            this.isConnected = false;
+        });
+        
+        // Xử lý sự kiện message
+        this.client.on('message', async (topic, message) => {
+            try {
+                console.log(`📩 Nhận được tin nhắn từ topic ${topic}: ${message.toString()}`);
+                
+                // Xử lý dữ liệu ở đây
+                await this._processReceivedData(topic, message);
+            } catch (error) {
+                console.error('Lỗi xử lý tin nhắn MQTT:', error);
+            }
+        });
+    }
+    
+    // Kiểm tra trạng thái kết nối
+    checkConnection() {
+        return this.isConnected && this.client && this.client.connected;
+    }
+    
+    // Phương thức xử lý dữ liệu - phải được đặt bên trong class
+    async _processReceivedData(topic, message) {
+        try {
+            // Parse giá trị từ message
+            let value;
+            try {
+                // Thử parse JSON
+                value = JSON.parse(message.toString());
+            } catch (e) {
+                // Nếu không phải JSON, thử convert sang số
+                value = parseFloat(message.toString());
+                if (isNaN(value)) {
+                    // Nếu không phải số, giữ nguyên string
+                    value = message.toString().trim();
+                }
+            }
+            
+            // Lưu vào internal cache
+            this.feeds[topic] = {
+                value,
+                timestamp: new Date(),
+                raw: message.toString()
+            };
+            
+            // Phân tích thông tin topic để lấy feedKey
+            // Ví dụ: leduccuongks0601/feeds/dht20-nhietdo
+            const parts = topic.split('/');
+            if (parts.length < 3 || parts[1] !== 'feeds') {
+                console.log(`Topic không đúng định dạng: ${topic}`);
+                return;
+            }
+            
+            const feedKey = parts[2];
+            console.log(`Xử lý dữ liệu cho feed: ${feedKey}`);
+            
+            // Tìm thiết bị và feed tương ứng trong database
+            let device, feed;
+            
+            // Tìm feed trước
+            feed = await prisma.feed.findFirst({
+                where: { feedKey },
+                include: { device: true }
+            });
+            
+            if (feed) {
+                device = feed.device;
+                console.log(`Tìm thấy feed ${feed.name} của thiết bị ${device.deviceCode}`);
+            } else {
+                // Nếu không tìm thấy feed, tìm thiết bị phù hợp
+                if (feedKey.includes('nhietdo') || feedKey.includes('temp')) {
+                    device = await prisma.ioTDevice.findFirst({
+                        where: { deviceType: 'temperature_humidity' }
+                    });
+                } else if (feedKey.includes('doam') || feedKey.includes('hum')) {
+                    device = await prisma.ioTDevice.findFirst({
+                        where: { deviceType: 'temperature_humidity' }
+                    });
+                } else if (feedKey.includes('soil') || feedKey.includes('dat')) {
+                    device = await prisma.ioTDevice.findFirst({
+                        where: { deviceType: 'soil_moisture' }
+                    });
+                } else if (feedKey.includes('pump') || feedKey.includes('bom')) {
+                    device = await prisma.ioTDevice.findFirst({
+                        where: { deviceType: 'pump_water' }
+                    });
+                }
+                
+                if (!device) {
+                    console.log(`Không tìm thấy thiết bị phù hợp cho feed ${feedKey}`);
+                    return;
+                }
+                
+                console.log(`Tìm thấy thiết bị ${device.deviceCode} phù hợp với feed ${feedKey}`);
+                
+                // Tự động tạo feed nếu chưa có
+                feed = await prisma.feed.create({
+                    data: {
+                        name: feedKey,
+                        feedKey: feedKey,
+                        description: `Feed tự động tạo cho ${feedKey}`,
+                        deviceId: device.id
+                    }
+                });
+                console.log(`Đã tạo feed mới: ${feed.name}`);
+            }
+            
+            // Lấy giá trị số từ dữ liệu
+            let numericValue = null;
+            if (typeof value === 'number') {
+                numericValue = value;
+            } else if (typeof value === 'string') {
+                numericValue = parseFloat(value);
+            } else if (typeof value === 'object' && value !== null) {
+                // Các trường thường gặp trong object từ Adafruit
+                if (value.value !== undefined) {
+                    numericValue = parseFloat(value.value);
+                } else if (value.last_value !== undefined) {
+                    numericValue = parseFloat(value.last_value);
+                }
+            }
+            
+            if (isNaN(numericValue)) {
+                console.log(`Không thể parse giá trị thành số`);
+                return;
+            }
+            
+            
+            
+            // Cập nhật trạng thái thiết bị
+            await prisma.ioTDevice.update({
+                where: { id: device.id },
+                data: { 
+                    status: 'On',
+                    isOnline: true,
+                    lastSeen: new Date(),
+                    lastSeenAt: new Date() 
+                }
+            });
+            
+            // Cập nhật giá trị mới nhất của feed
+            await prisma.feed.update({
+                where: { id: feed.id },
+                data: { lastValue: numericValue }
+            });
+            
+            // Lưu dữ liệu sensor chung
+            const sensorData = await prisma.sensorData.create({
+                data: {
+                    value: numericValue,
+                    deviceId: device.id,
+                    feedId: feed.id,
+                    isAbnormal: false
+                }
+            });
+            
+            // Lưu dữ liệu theo loại thiết bị cụ thể
+            // if (device.deviceType === 'temperature_humidity') {
+            //     // Xử lý nhiệt độ
+            //     if (feedKey.includes('nhietdo') || feedKey.includes('temp')) {
+            //         await prisma.temperatureHumidityData.create({
+            //             data: {
+            //                 temperature: numericValue,
+            //                 humidity: 0, // Sẽ được cập nhật khi có dữ liệu độ ẩm
+            //                 deviceId: device.id
+            //             }
+            //         });
+            //         console.log(`📊 Đã lưu dữ liệu nhiệt độ: ${numericValue}°C`);
+            //     } 
+            //     // Xử lý độ ẩm
+            //     else if (feedKey.includes('doam') || feedKey.includes('hum')) {
+            //         // Tìm bản ghi nhiệt độ gần nhất (trong vòng 1 phút)
+            //         const latestData = await prisma.temperatureHumidityData.findFirst({
+            //             where: { 
+            //                 deviceId: device.id,
+            //                 readingTime: {
+            //                     gte: new Date(Date.now() - 60000) // 1 phút
+            //                 }
+            //             },
+            //             orderBy: { readingTime: 'desc' }
+            //         });
+                    
+            //         if (latestData) {
+            //             // Cập nhật bản ghi hiện có
+            //             await prisma.temperatureHumidityData.update({
+            //                 where: { id: latestData.id },
+            //                 data: { humidity: numericValue }
+            //             });
+            //             console.log(`📊 Đã cập nhật dữ liệu độ ẩm: ${numericValue}% cho bản ghi hiện có`);
+            //         } else {
+            //             // Tạo bản ghi mới
+            //             await prisma.temperatureHumidityData.create({
+            //                 data: {
+            //                     temperature: 0, // Giá trị mặc định
+            //                     humidity: numericValue,
+            //                     deviceId: device.id
+            //                 }
+            //             });
+            //             console.log(`📊 Đã tạo bản ghi mới với độ ẩm: ${numericValue}%`);
+            //         }
+            //     }
+            // } 
+            // // Xử lý độ ẩm đất
+            // else if (device.deviceType === 'soil_moisture') {
+            //     await prisma.soilMoistureData.create({
+            //         data: {
+            //             moistureValue: numericValue,
+            //             deviceId: device.id
+            //         }
+            //     });
+            //     console.log(`📊 Đã lưu dữ liệu độ ẩm đất: ${numericValue}%`);
+            // }
+            // Kiểm tra xem cả hai feed đã có giá trị chưa (nhiệt độ và độ ẩm)
+            const feedKeyTemperature = 'dht20-nhietdo'; // Feed nhiệt độ
+            const feedKeyHumidity = 'dht20-doam'; // Feed độ ẩm
 
-    /**
-     * Kết nối thiết bị với MQTT broker
-     * @param {Object} device - Đối tượng thiết bị từ database
-     */
+            // Nếu cả hai feed đã có dữ liệu, thì lưu chúng vào cơ sở dữ liệu
+            if (this.feeds[`${this.username}/feeds/${feedKeyTemperature}`] && this.feeds[`${this.username}/feeds/${feedKeyHumidity}`]) {
+                const temperatureValue = this.feeds[`${this.username}/feeds/${feedKeyTemperature}`].value;
+                const humidityValue = this.feeds[`${this.username}/feeds/${feedKeyHumidity}`].value;
+
+                console.log(`Cả nhiệt độ và độ ẩm đều có giá trị: ${temperatureValue} và ${humidityValue}`);
+
+                // Lưu nhiệt độ và độ ẩm vào cơ sở dữ liệu
+                await prisma.temperatureHumidityData.create({
+                    data: {
+                        temperature: temperatureValue,
+                        humidity: humidityValue,
+                        deviceId: device.id
+                    }
+                });
+
+                console.log(`📊 Đã lưu dữ liệu nhiệt độ: ${temperatureValue}°C và độ ẩm: ${humidityValue}%`);
+                
+                // Xóa cache sau khi lưu để tránh lặp lại
+                delete this.feeds[`${this.username}/feeds/${feedKeyTemperature}`];
+                delete this.feeds[`${this.username}/feeds/${feedKeyHumidity}`];
+            }
+
+            // Nếu chỉ nhận được một trong hai feed, chỉ lưu dữ liệu của feed đó
+            else if (feedKey.includes('nhietdo') || feedKey.includes('temp')) {
+                console.log(`📊 Đã lưu dữ liệu nhiệt độ: ${numericValue}°C`);
+                await prisma.temperatureHumidityData.create({
+                    data: {
+                        temperature: numericValue,
+                        humidity: 0, // Mặc định, độ ẩm là 0 cho đến khi nhận được giá trị độ ẩm
+                        deviceId: device.id
+                    }
+                });
+            } else if (feedKey.includes('doam') || feedKey.includes('hum')) {
+                console.log(`📊 Đã lưu dữ liệu độ ẩm: ${numericValue}%`);
+                await prisma.temperatureHumidityData.create({
+                    data: {
+                        temperature: 0, // Mặc định, nhiệt độ là 0 cho đến khi nhận được giá trị nhiệt độ
+                        humidity: numericValue,
+                        deviceId: device.id
+                    }
+                });
+            } else if (feedKey.includes('pump') || feedKey.includes('bom')) {
+                console.log(`📊 Đã lưu dữ liệu máy bơm: ${numericValue}`);
+                await prisma.pumpWaterData.create({
+                    data: {
+                        pumpWaterValue: numericValue,
+                        deviceId: device.id
+                    }
+                });
+            } else if (feedKey.includes('soil') || feedKey.includes('dat')) {
+                console.log(`📊 Đã lưu dữ liệu độ ẩm đất: ${numericValue}%`);
+                await prisma.soilMoistureData.create({
+                    data: {
+                        moistureValue: numericValue,
+                        deviceId: device.id
+                    }
+                });
+            }
+            
+            
+            
+            console.log(`✅ Hoàn tất xử lý dữ liệu cho feed ${feedKey}`);
+            return true;
+        } catch (error) {
+            console.error(`❌ Lỗi xử lý dữ liệu cho topic ${topic}:`, error);
+            return false;
+        }
+    }
+    
+    // Phương thức kết nối thiết bị
     async connectDevice(device) {
         try {
-            // Nếu thiết bị đã kết nối, ngắt kết nối trước
-            if (this.deviceConnections.has(device.id)) {
-                await this.disconnectDevice(device.id);
-            }
-
-            // Nếu thiết bị không hoạt động, không kết nối MQTT
-            if (device.status === 'Off') {
-                console.log(`Thiết bị ${device.deviceCode} đang tắt, không kết nối MQTT`);
+            console.log(`Đang kết nối thiết bị ${device.deviceCode} với MQTT`);
+            
+            // Kiểm tra kết nối
+            if (!this.checkConnection()) {
+                console.warn(`⚠️ MQTT chưa kết nối, không thể kết nối thiết bị ${device.deviceCode}`);
                 return false;
             }
-
-            // Cấu hình MQTT
-            const mqttConfig = {
-                host: 'io.adafruit.com',
-                port: 1883,
-                protocol: 'mqtt',
-                username: device.mqttUsername || process.env.MQTT_USERNAME,
-                password: device.mqttApiKey || process.env.MQTT_API_KEY,
-                keepalive: 60,
-                reconnectPeriod: 5000
-            };
-
-            console.log(`Đang kết nối MQTT cho thiết bị ${device.deviceCode}`);
-            const client = mqtt.connect(`${mqttConfig.protocol}://${mqttConfig.host}`, mqttConfig);
-
-            client.on('connect', async () => {
-                console.log(`Đã kết nối MQTT cho thiết bị ${device.deviceCode}`);
-                
-                // Cập nhật trạng thái thiết bị thành On trong database
-                await prisma.ioTDevice.update({
-                    where: { id: device.id },
-                    data: { 
-                        status: 'On',
-                        isOnline: true,
-                        lastSeen: new Date(),
-                        lastSeenAt: new Date()
-                    }
-                });
-                
-                // Subscribe vào topics dựa theo feeds hoặc loại thiết bị
-                if (device.feeds && device.feeds.length > 0) {
-                    // Nếu có danh sách feeds, đăng ký theo từng feed
-                    for (const feed of device.feeds) {
-                        const topic = `${mqttConfig.username}/feeds/${feed.feedKey}`;
-                        client.subscribe(topic, (err) => {
-                            if (err) {
-                                console.error(`Lỗi đăng ký topic ${topic}:`, err);
-                            } else {
-                                console.log(`Đã đăng ký topic ${topic}`);
-                            }
-                        });
-                    }
-                } else {
-                    // Đăng ký dựa trên loại thiết bị nếu không có feeds
-                    if (device.deviceType === 'temperature_humidity') {
-                        client.subscribe(`${mqttConfig.username}/feeds/dht20-nhietdo`);
-                        client.subscribe(`${mqttConfig.username}/feeds/dht20-doam`);
-                        console.log(`Đã đăng ký feeds nhiệt độ và độ ẩm`);
-                    } else if (device.deviceType === 'soil_moisture') {
-                        client.subscribe(`${mqttConfig.username}/feeds/doamdat`);
-                        console.log(`Đã đăng ký feed độ ẩm đất`);
-                    } else if (device.deviceType === 'pump_water') {
-                        // Có thể đăng ký feed cho máy bơm nếu cần
-                        client.subscribe(`${mqttConfig.username}/feeds/pump-control`);
-                        console.log(`Đã đăng ký feed điều khiển máy bơm`);
-                    }
-                }
-            });
-
-            client.on('message', async (topic, message) => {
-                console.log(`Nhận tin nhắn từ topic ${topic}: ${message.toString()}`);
-                try {
-                    const value = parseFloat(message.toString());
-                    if (isNaN(value)) {
-                        console.error(`Nhận được giá trị không hợp lệ từ topic ${topic}: ${message.toString()}`);
-                        return;
-                    }
-
-                    const feedKey = topic.split('/').pop();
-                    
-                    // Cập nhật last seen time
-                    await prisma.ioTDevice.update({
-                        where: { id: device.id },
-                        data: { 
-                            status: 'On',
-                            lastSeenAt: new Date(),
-                            lastSeen: new Date(),
-                            isOnline: true
-                        }
-                    });
-
-                    // Xử lý dữ liệu theo feed key và loại thiết bị
-                    if (device.feeds && device.feeds.length > 0) {
-                        // Tìm feed tương ứng
-                        const feed = device.feeds.find(f => f.feedKey === feedKey);
-                        if (feed) {
-                            // Kiểm tra giá trị có nằm trong khoảng cho phép không
-                            const isAbnormal = (feed.minValue != null && value < feed.minValue) ||
-                                              (feed.maxValue != null && value > feed.maxValue);
-                            
-                            // Cập nhật giá trị cuối cùng của feed
-                            await prisma.feed.update({
-                                where: { id: feed.id },
-                                data: { lastValue: value }
-                            });
-                            
-                            // Lưu dữ liệu cảm biến
-                            await prisma.sensorData.create({
-                                data: {
-                                    value,
-                                    deviceId: device.id,
-                                    feedId: feed.id,
-                                    isAbnormal
-                                }
-                            });
-                            
-                            console.log(`Đã lưu dữ liệu: ${device.deviceCode}, Feed: ${feed.name}, Value: ${value}`);
-                        }
-                    }
-
-                    // Lưu dữ liệu vào các bảng tương ứng dựa trên loại thiết bị và feed key
-                    if (device.deviceType === 'temperature_humidity') {
-                        if (feedKey === 'dht20-nhietdo') {
-                            // Lưu dữ liệu nhiệt độ
-                            await prisma.temperatureHumidityData.create({
-                                data: {
-                                    temperature: value,
-                                    humidity: 0, // Sẽ được cập nhật khi có dữ liệu độ ẩm
-                                    deviceId: device.id
-                                }
-                            });
-                            console.log(`Đã lưu dữ liệu nhiệt độ: ${value}°C`);
-                        } else if (feedKey === 'dht20-doam') {
-                            // Tìm và cập nhật bản ghi nhiệt độ gần nhất
-                            const latestData = await prisma.temperatureHumidityData.findFirst({
-                                where: { deviceId: device.id },
-                                orderBy: { readingTime: 'desc' }
-                            });
-
-                            if (latestData) {
-                                await prisma.temperatureHumidityData.update({
-                                    where: { id: latestData.id },
-                                    data: { humidity: value }
-                                });
-                            } else {
-                                await prisma.temperatureHumidityData.create({
-                                    data: {
-                                        temperature: 0,
-                                        humidity: value,
-                                        deviceId: device.id
-                                    }
-                                });
-                            }
-                            console.log(`Đã lưu dữ liệu độ ẩm: ${value}%`);
-                        }
-                    } else if (device.deviceType === 'soil_moisture' && feedKey === 'doamdat') {
-                        // Lưu dữ liệu độ ẩm đất
-                        await prisma.soilMoistureData.create({
-                            data: {
-                                moistureValue: value,
-                                deviceId: device.id
-                            }
-                        });
-                        console.log(`Đã lưu dữ liệu độ ẩm đất: ${value}%`);
-                    } else if (device.deviceType === 'pump_water' && feedKey === 'pump-control') {
-                        // Lưu dữ liệu máy bơm
-                        await prisma.pumpWaterData.create({
-                            data: {
-                                status: value > 0 ? 'on' : 'off',
-                                pumpSpeed: Math.round(value),
-                                deviceId: device.id
-                            }
-                        });
-                        console.log(`Đã lưu dữ liệu máy bơm: ${value}`);
-                    }
-
-                    // Tạo log data nếu có ID thông báo
-                    try {
-                        // Lấy thông báo đầu tiên từ database
-                        const notification = await prisma.notification.findFirst();
-                        if (notification) {
-                            await prisma.logData.create({
-                                data: {
-                                    value: `Received ${value} from ${topic}`,
-                                    deviceId: device.id,
-                                    notificationId: notification.id
-                                }
-                            });
-                        }
-                    } catch (logError) {
-                        console.error('Lỗi khi tạo log data:', logError);
-                    }
-
-                } catch (error) {
-                    console.error('Lỗi xử lý tin nhắn MQTT:', error);
-                }
-            });
-
-            client.on('error', (error) => {
-                console.error(`Lỗi MQTT cho thiết bị ${device.deviceCode}:`, error);
-            });
-
-            client.on('offline', async () => {
-                console.log(`Thiết bị ${device.deviceCode} offline`);
-                await this.updateDeviceStatus(device.id, false);
-            });
-
-            client.on('close', async () => {
-                console.log(`Kết nối MQTT đã đóng cho thiết bị ${device.deviceCode}`);
-                await this.updateDeviceStatus(device.id, false);
-            });
-
-            // Lưu kết nối vào Map
-            this.deviceConnections.set(device.id, client);
-            return true;
-        } catch (error) {
-            console.error(`Lỗi kết nối thiết bị ${device.deviceCode}:`, error);
-            return false;
-        }
-    }
-
-    /**
-     * Cập nhật trạng thái thiết bị trong database
-     */
-    async updateDeviceStatus(deviceId, isOnline) {
-        try {
-            await prisma.ioTDevice.update({
-                where: { id: deviceId },
-                data: {
-                    isOnline,
-                    status: isOnline ? 'On' : 'Off',
-                    lastSeen: isOnline ? new Date() : undefined
-                }
-            });
-        } catch (error) {
-            console.error('Lỗi cập nhật trạng thái thiết bị:', error);
-        }
-    }
-
-    /**
-     * Ngắt kết nối MQTT cho thiết bị
-     */
-    async disconnectDevice(deviceId) {
-        const client = this.deviceConnections.get(deviceId);
-        if (client) {
-            client.end();
-            this.deviceConnections.delete(deviceId);
-            await this.updateDeviceStatus(deviceId, false);
-            console.log(`Đã ngắt kết nối MQTT cho thiết bị ID: ${deviceId}`);
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Kết nối lại thiết bị
-     */
-    async reconnectDevice(deviceId) {
-        try {
-            // Lấy thông tin thiết bị từ database
-            const device = await prisma.ioTDevice.findUnique({
-                where: { id: deviceId },
-                include: { feeds: true }
-            });
-
-            if (device) {
-                // Ngắt kết nối cũ nếu có
-                await this.disconnectDevice(deviceId);
-                // Kết nối lại
-                return await this.connectDevice(device);
-            }
-            return false;
-        } catch (error) {
-            console.error(`Lỗi kết nối lại thiết bị ID ${deviceId}:`, error);
-            return false;
-        }
-    }
-
-    /**
-     * Kiểm tra thiết bị hoạt động định kỳ
-     */
-    async checkDevicesActivity() {
-        try {
-            const inactiveThreshold = new Date();
-            inactiveThreshold.setMinutes(inactiveThreshold.getMinutes() - 5); // 5 phút
             
-            // Tìm các thiết bị không gửi dữ liệu trong 5 phút
-            const inactiveDevices = await prisma.ioTDevice.findMany({
-                where: {
-                    status: 'On',
-                    OR: [
-                        { lastSeenAt: { lt: inactiveThreshold } },
-                        { lastSeenAt: null }
-                    ]
-                }
-            });
+            // Xác định các topics cần đăng ký
+            const topics = [];
             
-            // Đánh dấu thiết bị không hoạt động
-            for (const device of inactiveDevices) {
-                await prisma.ioTDevice.update({
-                    where: { id: device.id },
-                    data: { 
-                        status: 'Off',
-                        isOnline: false
-                    }
-                });
-                console.log(`Thiết bị ${device.deviceCode} không phản hồi, đã chuyển thành không hoạt động`);
-                
-                // Ngắt kết nối MQTT nếu vẫn còn kết nối
-                if (this.deviceConnections.has(device.id)) {
-                    await this.disconnectDevice(device.id);
+            if (device.feeds && device.feeds.length > 0) {
+                // Nếu thiết bị có feeds được định nghĩa sẵn
+                for (const feed of device.feeds) {
+                    topics.push(`${this.username}/feeds/${feed.feedKey}`);
+                }
+            } else {
+                // Đăng ký dựa vào loại thiết bị
+                if (device.deviceType === 'temperature_humidity') {
+                    topics.push(`${this.username}/feeds/dht20-nhietdo`);
+                    topics.push(`${this.username}/feeds/dht20-doam`);
+                } else if (device.deviceType === 'soil_moisture') {
+                    topics.push(`${this.username}/feeds/doamdat`);
                 }
             }
             
-            if (inactiveDevices.length > 0) {
-                console.log(`Đã cập nhật ${inactiveDevices.length} thiết bị không hoạt động`);
-            }
-        } catch (error) {
-            console.error('Lỗi kiểm tra hoạt động thiết bị:', error);
-        }
-    }
-
-    /**
-     * Xuất bản tin nhắn đến topic MQTT
-     */
-    async publishMessage(deviceId, feedKey, value) {
-        try {
-            const device = await prisma.ioTDevice.findUnique({
-                where: { id: deviceId }
-            });
-            
-            if (!device) {
-                throw new Error(`Không tìm thấy thiết bị với ID ${deviceId}`);
-            }
-            
-            const client = this.deviceConnections.get(deviceId);
-            if (!client) {
-                throw new Error(`Không có kết nối MQTT cho thiết bị ID ${deviceId}`);
-            }
-            
-            const username = device.mqttUsername || process.env.MQTT_USERNAME;
-            const topic = `${username}/feeds/${feedKey}`;
-            
-            return new Promise((resolve, reject) => {
-                client.publish(topic, value.toString(), { qos: 1 }, (error) => {
-                    if (error) {
-                        reject(error);
+            // Đăng ký các topics
+            for (const topic of topics) {
+                this.client.subscribe(topic, (err) => {
+                    if (err) {
+                        console.error(`❌ Lỗi đăng ký topic ${topic}:`, err);
                     } else {
-                        console.log(`Đã xuất bản tin nhắn đến ${topic}: ${value}`);
-                        resolve(true);
+                        console.log(`✅ Đã đăng ký topic ${topic} cho thiết bị ${device.deviceCode}`);
                     }
                 });
+            }
+            
+            // Cập nhật trạng thái thiết bị
+            await prisma.ioTDevice.update({
+                where: { id: device.id },
+                data: { 
+                    status: 'On',
+                    isOnline: true,
+                    lastSeen: new Date(),
+                    lastSeenAt: new Date()
+                }
             });
+            
+            // Lưu thông tin kết nối
+            this.deviceConnections.set(device.id, {
+                deviceCode: device.deviceCode,
+                deviceType: device.deviceType,
+                topics: topics
+            });
+            
+            console.log(`✅ Đã kết nối thành công thiết bị ${device.deviceCode}`);
+            return true;
         } catch (error) {
-            console.error('Lỗi xuất bản tin nhắn MQTT:', error);
-            throw error;
+            console.error(`❌ Lỗi kết nối thiết bị ${device.deviceCode}:`, error);
+            return false;
         }
+    }
+    
+    // Phương thức đăng ký nhận dữ liệu từ tất cả feeds
+    async subscribeToAllFeeds() {
+        if (!this.checkConnection()) {
+            console.error('MQTT chưa kết nối, không thể đăng ký feeds');
+            return false;
+        }
+        
+        try {
+            // Đăng ký feed wildcard để nhận tất cả dữ liệu
+            this.client.subscribe(`${this.username}/feeds/feed`, (err) => {
+                if (err) {
+                    console.error(`Lỗi đăng ký wildcard topic:`, err);
+                } else {
+                    console.log(`✅ Đã đăng ký topic để nhận tất cả feeds`);
+                }
+            });
+            
+            return true;
+        } catch (error) {
+            console.error('Lỗi khi đăng ký feeds:', error);
+            return false;
+        }
+    }
+    
+    // Thêm phương thức waitForConnection nếu Server.js cần
+    async waitForConnection(timeout = 15000) {
+        return new Promise((resolve) => {
+            if (this.checkConnection()) {
+                resolve(true);
+                return;
+            }
+            
+            const connectHandler = () => {
+                resolve(true);
+            };
+            
+            this.client.once('connect', connectHandler);
+            
+            setTimeout(() => {
+                this.client.removeListener('connect', connectHandler);
+                resolve(this.checkConnection());
+            }, timeout);
+        });
     }
 }
 
 // Tạo và xuất instance duy nhất
 const mqttService = new MQTTService();
-module.exports = mqttService; 
+module.exports = mqttService;
