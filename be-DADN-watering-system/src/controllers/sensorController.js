@@ -105,6 +105,49 @@ exports.getLatestSensorData = async (req, res) => {
       }
     }
 
+    // Lấy dữ liệu mới nhất từ các thiết bị máy bơm
+    const pumpWaterDevices = devices.filter(d => d.deviceType === 'pump_water');
+    if (pumpWaterDevices.length > 0) {
+      for (const device of pumpWaterDevices) {
+        // Kiểm tra status của thiết bị
+        if (device.status === 'On') {
+          // Thiết bị đang hoạt động, lấy dữ liệu mới nhất
+          const pumpData = await SensorData.getLatestByType([device.id], 'pump_water');
+          if (pumpData && pumpData.length > 0) {
+            result.push({
+              deviceId: device.id,
+              deviceName: device.deviceCode,
+              deviceType: 'pump_water',
+              status: pumpData[0].status,
+              pumpSpeed: pumpData[0].pumpSpeed,
+              timestamp: pumpData[0].readingTime
+            });
+          } else {
+            // Không có dữ liệu cho thiết bị đang hoạt động
+            result.push({
+              deviceId: device.id,
+              deviceName: device.deviceCode,
+              deviceType: 'pump_water',
+              status: 'Inactive',
+              pumpSpeed: 0,
+              timestamp: new Date()
+            });
+          }
+        } else {
+          // Thiết bị không hoạt động, trả về 0
+          result.push({
+            deviceId: device.id,
+            deviceName: device.deviceCode,
+            deviceType: 'pump_water',
+            status: 'Inactive',
+            pumpSpeed: 0,
+            timestamp: new Date(),
+            inactive: true
+          });
+        }
+      }
+    }
+
     return res.status(200).json({
       success: true,
       data: result

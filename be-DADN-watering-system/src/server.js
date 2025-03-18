@@ -40,6 +40,20 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 3000;
 
+// Biến global để lưu trữ đối tượng Socket.IO
+let io;
+
+// Hàm để lấy đối tượng io từ các service khác
+const getIO = () => {
+    if (!io) {
+        throw new Error('Socket.IO chưa được khởi tạo');
+    }
+    return io;
+};
+
+// Export getIO để các module khác có thể sử dụng
+module.exports.getIO = getIO;
+
 // Initialize devices and start server
 async function startServer() {
     try {
@@ -58,7 +72,7 @@ async function startServer() {
         const server = http.createServer(app);
         
         // Tạo Socket.IO server
-        const io = new Server(server, {
+        io = new Server(server, {
             cors: {
                 origin: '*', // Đặt origin phù hợp với frontend của bạn
                 methods: ['GET', 'POST']
@@ -66,16 +80,16 @@ async function startServer() {
         });
         
         // Xử lý kết nối Socket.IO
-        io.on('connection', (socket) => {
-            console.log('Client kết nối: ' + socket.id);
+        // io.on('connection', (socket) => {
+        //     console.log('Client kết nối: ' + socket.id);
             
-            socket.on('disconnect', () => {
-                console.log('Client ngắt kết nối: ' + socket.id);
-            });
-        });
+        //     socket.on('disconnect', () => {
+        //         console.log('Client ngắt kết nối: ' + socket.id);
+        //     });
+        // });
         
         // Sửa MQTT service để phát sóng dữ liệu mới qua Socket.IO
-        // mqttService.setSocketIO(io);
+        mqttService.setSocketIO(io);
         
         // Khởi động HTTP server
         server.listen(PORT, () => {

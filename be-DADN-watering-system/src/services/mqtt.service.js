@@ -11,6 +11,7 @@ class MQTTService {
         this.deviceConnections = new Map();
         this.isConnected = false;
         this.feeds = {};
+        this.io = null; // Biến để lưu trữ đối tượng Socket.IO
         
         // Lấy thông tin kết nối từ biến môi trường
         this.username = process.env.MQTT_USERNAME || 'leduccuongks0601';
@@ -77,6 +78,23 @@ class MQTTService {
     // Kiểm tra trạng thái kết nối
     checkConnection() {
         return this.isConnected && this.client && this.client.connected;
+    }
+    
+    // Phương thức để thiết lập đối tượng Socket.IO
+    setSocketIO(io) {
+        this.io = io;
+        console.log('✅ Đã thiết lập Socket.IO cho MQTT service');
+    }
+    
+    // Phương thức để gửi dữ liệu cập nhật qua socket
+    emitSensorUpdate(data) {
+        if (!this.io) {
+            console.warn('⚠️ Socket.IO chưa được thiết lập, không thể gửi dữ liệu cập nhật');
+            return;
+        }
+        
+        console.log('📡 Đang gửi dữ liệu cập nhật qua socket');
+        this.io.emit('sensor-update', data);
     }
     
     // Phương thức xử lý dữ liệu - phải được đặt bên trong class
@@ -185,8 +203,6 @@ class MQTTService {
                 return;
             }
             
-            
-            
             // Cập nhật trạng thái thiết bị
             await prisma.ioTDevice.update({
                 where: { id: device.id },
@@ -203,73 +219,7 @@ class MQTTService {
                 where: { id: feed.id },
                 data: { lastValue: numericValue }
             });
-            
-            // Lưu dữ liệu sensor chung
-            const sensorData = await prisma.sensorData.create({
-                data: {
-                    value: numericValue,
-                    deviceId: device.id,
-                    feedId: feed.id,
-                    isAbnormal: false
-                }
-            });
-            
-            // Lưu dữ liệu theo loại thiết bị cụ thể
-            // if (device.deviceType === 'temperature_humidity') {
-            //     // Xử lý nhiệt độ
-            //     if (feedKey.includes('nhietdo') || feedKey.includes('temp')) {
-            //         await prisma.temperatureHumidityData.create({
-            //             data: {
-            //                 temperature: numericValue,
-            //                 humidity: 0, // Sẽ được cập nhật khi có dữ liệu độ ẩm
-            //                 deviceId: device.id
-            //             }
-            //         });
-            //         console.log(`📊 Đã lưu dữ liệu nhiệt độ: ${numericValue}°C`);
-            //     } 
-            //     // Xử lý độ ẩm
-            //     else if (feedKey.includes('doam') || feedKey.includes('hum')) {
-            //         // Tìm bản ghi nhiệt độ gần nhất (trong vòng 1 phút)
-            //         const latestData = await prisma.temperatureHumidityData.findFirst({
-            //             where: { 
-            //                 deviceId: device.id,
-            //                 readingTime: {
-            //                     gte: new Date(Date.now() - 60000) // 1 phút
-            //                 }
-            //             },
-            //             orderBy: { readingTime: 'desc' }
-            //         });
-                    
-            //         if (latestData) {
-            //             // Cập nhật bản ghi hiện có
-            //             await prisma.temperatureHumidityData.update({
-            //                 where: { id: latestData.id },
-            //                 data: { humidity: numericValue }
-            //             });
-            //             console.log(`📊 Đã cập nhật dữ liệu độ ẩm: ${numericValue}% cho bản ghi hiện có`);
-            //         } else {
-            //             // Tạo bản ghi mới
-            //             await prisma.temperatureHumidityData.create({
-            //                 data: {
-            //                     temperature: 0, // Giá trị mặc định
-            //                     humidity: numericValue,
-            //                     deviceId: device.id
-            //                 }
-            //             });
-            //             console.log(`📊 Đã tạo bản ghi mới với độ ẩm: ${numericValue}%`);
-            //         }
-            //     }
-            // } 
-            // // Xử lý độ ẩm đất
-            // else if (device.deviceType === 'soil_moisture') {
-            //     await prisma.soilMoistureData.create({
-            //         data: {
-            //             moistureValue: numericValue,
-            //             deviceId: device.id
-            //         }
-            //     });
-            //     console.log(`📊 Đã lưu dữ liệu độ ẩm đất: ${numericValue}%`);
-            // }
+
             // Kiểm tra xem cả hai feed đã có giá trị chưa (nhiệt độ và độ ẩm)
             const feedKeyTemperature = 'dht20-nhietdo'; // Feed nhiệt độ
             const feedKeyHumidity = 'dht20-doam'; // Feed độ ẩm
@@ -296,7 +246,6 @@ class MQTTService {
                 delete this.feeds[`${this.username}/feeds/${feedKeyTemperature}`];
                 delete this.feeds[`${this.username}/feeds/${feedKeyHumidity}`];
             }
-
             // Nếu chỉ nhận được một trong hai feed, chỉ lưu dữ liệu của feed đó
             else if (feedKey.includes('nhietdo') || feedKey.includes('temp')) {
                 console.log(`📊 Đã lưu dữ liệu nhiệt độ: ${numericValue}°C`);
@@ -307,24 +256,9 @@ class MQTTService {
                         deviceId: device.id
                     }
                 });
-            } else if (feedKey.includes('doam') || feedKey.includes('hum')) {
-                console.log(`📊 Đã lưu dữ liệu độ ẩm: ${numericValue}%`);
-                await prisma.temperatureHumidityData.create({
-                    data: {
-                        temperature: 0, // Mặc định, nhiệt độ là 0 cho đến khi nhận được giá trị nhiệt độ
-                        humidity: numericValue,
-                        deviceId: device.id
-                    }
-                });
-            } else if (feedKey.includes('pump') || feedKey.includes('bom')) {
-                console.log(`📊 Đã lưu dữ liệu máy bơm: ${numericValue}`);
-                await prisma.pumpWaterData.create({
-                    data: {
-                        pumpWaterValue: numericValue,
-                        deviceId: device.id
-                    }
-                });
-            } else if (feedKey.includes('soil') || feedKey.includes('dat')) {
+            }
+            // Kiểm tra cụ thể cho độ ẩm đất
+            else if (feedKey.includes('soil') || feedKey.includes('dat') || feedKey.includes('doamdat')) {
                 console.log(`📊 Đã lưu dữ liệu độ ẩm đất: ${numericValue}%`);
                 await prisma.soilMoistureData.create({
                     data: {
@@ -333,8 +267,149 @@ class MQTTService {
                     }
                 });
             }
+            // Kiểm tra cho độ ẩm không khí (chỉ những feed không phải độ ẩm đất)
+            else if ((feedKey.includes('doam') || feedKey.includes('hum')) && 
+                     !feedKey.includes('dat') && !feedKey.includes('soil')) {
+                console.log(`📊 Đã lưu dữ liệu độ ẩm không khí: ${numericValue}%`);
+                await prisma.temperatureHumidityData.create({
+                    data: {
+                        temperature: 0,
+                        humidity: numericValue,
+                        deviceId: device.id
+                    }
+                });
+            } else if (feedKey.includes('pump') || feedKey.includes('bom')) {
+                // Xử lý khác nhau cho status và speed của máy bơm
+                if (feedKey.includes('status')) {
+                    // Đây là trạng thái máy bơm (ON/OFF)
+                    const pumpStatus = numericValue === 1 ? 'Active' : 'Inactive';
+                    
+                    // Tìm bản ghi gần nhất để lấy giá trị speed
+                    const latestPumpData = await prisma.pumpWaterData.findFirst({
+                        where: { deviceId: device.id },
+                        orderBy: { readingTime: 'desc' }
+                    });
+                    
+                    const pumpSpeed = latestPumpData ? latestPumpData.pumpSpeed : 0;
+
+                    console.log(`📊 Đã lưu dữ liệu trạng thái máy bơm: ${pumpStatus} (${pumpSpeed}%)`);
+                    await prisma.pumpWaterData.create({
+                        data: {
+                            status: pumpStatus,
+                            pumpSpeed: pumpSpeed,
+                            deviceId: device.id
+                        }
+                    });
+                } else if (feedKey.includes('speed')) {
+                    // Đây là tốc độ máy bơm (%)
+                    // Giới hạn giá trị từ 0 đến 100
+                    const pumpSpeed = Math.max(0, Math.min(100, Math.round(numericValue)));
+                    
+                    // Tìm bản ghi gần nhất để lấy giá trị status
+                    const latestPumpData = await prisma.pumpWaterData.findFirst({
+                        where: { deviceId: device.id },
+                        orderBy: { readingTime: 'desc' }
+                    });
+                    
+                    const pumpStatus = latestPumpData ? latestPumpData.status : 
+                        (pumpSpeed > 0 ? 'Active' : 'Inactive');
+
+                    console.log(`📊 Đã lưu dữ liệu tốc độ máy bơm: ${pumpSpeed}% (${pumpStatus})`);
+                    await prisma.pumpWaterData.create({
+                        data: {
+                            status: pumpStatus,
+                            pumpSpeed: pumpSpeed,
+                            deviceId: device.id
+                        }
+                    });
+                } else {
+                    // Mặc định là status với logic ON/OFF
+                    const pumpStatus = numericValue > 0 ? 'Active' : 'Inactive';
+                    const pumpSpeed = numericValue > 0 ? Math.round(numericValue) : 0;
+
+                    console.log(`📊 Đã lưu dữ liệu máy bơm: ${pumpStatus} (${pumpSpeed}%)`);
+                    await prisma.pumpWaterData.create({
+                        data: {
+                            status: pumpStatus,
+                            pumpSpeed: pumpSpeed,
+                            deviceId: device.id
+                        }
+                    });
+                }
+            }
             
+            // Sau khi lưu dữ liệu, gửi thông báo cập nhật qua WebSocket
             
+            // Đối với nhiệt độ và độ ẩm
+            if (feedKey.includes('nhietdo') || feedKey.includes('temp') || 
+                ((feedKey.includes('doam') || feedKey.includes('hum')) && 
+                !feedKey.includes('dat') && !feedKey.includes('soil'))) {
+                
+                // Lấy dữ liệu mới nhất của thiết bị
+                const latestData = await prisma.temperatureHumidityData.findFirst({
+                    where: { deviceId: device.id },
+                    orderBy: { readingTime: 'desc' }
+                });
+                
+                if (latestData) {
+                    this.emitSensorUpdate({
+                        type: 'temperature_humidity',
+                        data: {
+                            deviceId: device.id,
+                            deviceName: device.deviceCode,
+                            deviceType: 'temperature_humidity',
+                            temperature: latestData.temperature,
+                            humidity: latestData.humidity,
+                            timestamp: latestData.readingTime
+                        }
+                    });
+                }
+            }
+            
+            // Đối với độ ẩm đất
+            else if (feedKey.includes('soil') || feedKey.includes('dat') || feedKey.includes('doamdat')) {
+                // Lấy dữ liệu mới nhất của thiết bị
+                const latestData = await prisma.soilMoistureData.findFirst({
+                    where: { deviceId: device.id },
+                    orderBy: { readingTime: 'desc' }
+                });
+                
+                if (latestData) {
+                    this.emitSensorUpdate({
+                        type: 'soil_moisture',
+                        data: {
+                            deviceId: device.id,
+                            deviceName: device.deviceCode,
+                            deviceType: 'soil_moisture',
+                            soilMoisture: latestData.moistureValue,
+                            timestamp: latestData.readingTime
+                        }
+                    });
+                }
+            }
+            
+            // Đối với máy bơm
+            else if (feedKey.includes('pump') || feedKey.includes('bom')) {
+                // Lấy dữ liệu mới nhất của thiết bị
+                const latestData = await prisma.pumpWaterData.findFirst({
+                    where: { deviceId: device.id },
+                    orderBy: { readingTime: 'desc' }
+                });
+                
+                if (latestData) {
+                    this.emitSensorUpdate({
+                        type: 'pump_water',
+                        data: {
+                            deviceId: device.id,
+                            deviceName: device.deviceCode,
+                            deviceType: 'pump_water',
+                            status: latestData.status,
+                            pumpSpeed: latestData.pumpSpeed,
+                            timestamp: latestData.readingTime
+                        }
+                    });
+                }
+            }
             
             console.log(`✅ Hoàn tất xử lý dữ liệu cho feed ${feedKey}`);
             return true;
@@ -370,6 +445,8 @@ class MQTTService {
                     topics.push(`${this.username}/feeds/dht20-doam`);
                 } else if (device.deviceType === 'soil_moisture') {
                     topics.push(`${this.username}/feeds/doamdat`);
+                } else if (device.deviceType === 'pump_water') {
+                    topics.push(`${this.username}/feeds/maybom`);
                 }
             }
             

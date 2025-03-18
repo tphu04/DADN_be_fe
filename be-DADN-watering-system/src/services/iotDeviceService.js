@@ -194,40 +194,37 @@ class IoTDeviceService {
 
             // Xóa các bản ghi liên quan để tránh vi phạm ràng buộc khóa ngoại
             await prisma.$transaction([
-                // 1. Xóa dữ liệu cảm biến
+                // 1. Xóa các feeds liên quan
+                prisma.feed.deleteMany({
+                    where: { deviceId: parseInt(id) }
+                }),
+                
+                // 2. Xóa dữ liệu nhiệt độ và độ ẩm
                 prisma.temperatureHumidityData.deleteMany({
                     where: { deviceId: parseInt(id) }
                 }),
                 
+                // 3. Xóa dữ liệu độ ẩm đất
                 prisma.soilMoistureData.deleteMany({
                     where: { deviceId: parseInt(id) }
                 }),
                 
+                // 4. Xóa dữ liệu máy bơm
                 prisma.pumpWaterData.deleteMany({
                     where: { deviceId: parseInt(id) }
                 }),
-
-                // 2. Xóa dữ liệu SensorData
-                prisma.sensorData.deleteMany({
-                    where: { deviceId: parseInt(id) }
-                }),
                 
-                // 3. Xóa Log data
+                // 5. Xóa Log data
                 prisma.logData.deleteMany({
                     where: { deviceId: parseInt(id) }
                 }),
                 
-                // 4. Xóa Configurations
+                // 6. Xóa Configurations
                 prisma.configuration.deleteMany({
                     where: { deviceId: parseInt(id) }
                 }),
                 
-                // 5. Xóa Feed
-                prisma.feed.deleteMany({
-                    where: { deviceId: parseInt(id) }
-                }),
-
-                // 6. Cuối cùng xóa thiết bị
+                // 7. Cuối cùng xóa thiết bị
                 prisma.ioTDevice.delete({
                     where: { id: parseInt(id) }
                 })

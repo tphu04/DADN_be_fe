@@ -13,53 +13,91 @@ const DeviceDetail = () => {
     const fetchDeviceDetails = async () => {
       try {
         setLoading(true);
+        console.log('Fetching device with ID:', deviceId);
+        
         // Lấy thông tin thiết bị
         const deviceData = await DeviceServices.getDeviceById(deviceId);
-        setDevice(deviceData);
-
-        // Lấy dữ liệu cảm biến tùy theo loại thiết bị
-        // Chỉ lấy dữ liệu nếu thiết bị đang hoạt động (status = On)
-        if (deviceData.status === 'On') {
-          if (deviceData.deviceType === 'temperature_humidity') {
-            // Lấy dữ liệu nhiệt độ và độ ẩm
-            const tempHumidData = await DeviceServices.getTemperatureHumidityData(deviceId);
+        console.log('Device data received:', deviceData);
+        
+        if (deviceData.device) {
+          // API trả về dữ liệu trong cấu trúc { device, latestData, historicalData }
+          setDevice(deviceData.device);
+          
+          // Xử lý dữ liệu cảm biến từ dữ liệu lịch sử
+          if (deviceData.device.deviceType === 'temperature_humidity') {
+            console.log('Temperature humidity historical data:', deviceData.historicalData);
             setSensorData({
-              temperatureHumidity: tempHumidData
+              temperatureHumidity: deviceData.historicalData || []
             });
-          } else if (deviceData.deviceType === 'soil_moisture') {
-            // Lấy dữ liệu độ ẩm đất
-            const soilData = await DeviceServices.getSoilMoistureData(deviceId);
+          } else if (deviceData.device.deviceType === 'soil_moisture') {
+            console.log('Soil moisture historical data:', deviceData.historicalData);
             setSensorData({
-              soilMoisture: soilData
+              soilMoisture: deviceData.historicalData || []
             });
-          } else if (deviceData.deviceType === 'pump_water') {
-            // Lấy dữ liệu của máy bơm
-            const pumpData = await DeviceServices.getPumpWaterData(deviceId);
+          } else if (deviceData.device.deviceType === 'pump_water') {
+            console.log('Pump water historical data:', deviceData.historicalData);
             setSensorData({
-              pumpData: pumpData
+              pumpData: deviceData.historicalData || []
             });
           }
         } else {
-          // Thiết bị không hoạt động, tạo dữ liệu trống hoặc 0
+          // Direct data structure (fallback if API doesn't return the expected format)
+          setDevice(deviceData);
+          
+          // Lấy dữ liệu cảm biến bất kể trạng thái thiết bị
           if (deviceData.deviceType === 'temperature_humidity') {
-            setSensorData({
-              temperatureHumidity: []
-            });
+            try {
+              const tempHumidResponse = await DeviceServices.getTemperatureHumidityData(deviceId);
+              console.log('Temperature humidity data response:', tempHumidResponse);
+              
+              // Check if the response contains a data property
+              const tempHumidData = tempHumidResponse.data || tempHumidResponse;
+              setSensorData({
+                temperatureHumidity: tempHumidData
+              });
+            } catch (err) {
+              console.error('Error fetching temperature humidity data:', err);
+              setSensorData({
+                temperatureHumidity: []
+              });
+            }
           } else if (deviceData.deviceType === 'soil_moisture') {
-            setSensorData({
-              soilMoisture: []
-            });
+            try {
+              const soilResponse = await DeviceServices.getSoilMoistureData(deviceId);
+              console.log('Soil moisture data response:', soilResponse);
+              
+              const soilData = soilResponse.data || soilResponse;
+              setSensorData({
+                soilMoisture: soilData
+              });
+            } catch (err) {
+              console.error('Error fetching soil moisture data:', err);
+              setSensorData({
+                soilMoisture: []
+              });
+            }
           } else if (deviceData.deviceType === 'pump_water') {
-            setSensorData({
-              pumpData: []
-            });
+            try {
+              const pumpResponse = await DeviceServices.getPumpWaterData(deviceId);
+              console.log('Pump water data response:', pumpResponse);
+              
+              const pumpData = pumpResponse.data || pumpResponse;
+              setSensorData({
+                pumpData: pumpData
+              });
+            } catch (err) {
+              console.error('Error fetching pump data:', err);
+              setSensorData({
+                pumpData: []
+              });
+            }
           }
         }
         
         setLoading(false);
       } catch (error) {
         console.error('Error fetching device details:', error);
-        setError('Failed to load device details');
+        setError('Failed to load device details: ' + (error.message || 'Unknown error'));
         setLoading(false);
       }
     };
@@ -83,11 +121,15 @@ const DeviceDetail = () => {
   const getStatusColor = (status) => {
     if (!status) return 'bg-gray-500 text-white';
     
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'On':
+      case 'active':
         return 'bg-green-500 text-white';
       case 'Off':
+      case 'inactive':
         return 'bg-red-500 text-white';
+      case 'maintenance':
+        return 'bg-yellow-500 text-white';        
       default:
         return 'bg-gray-500 text-white';
     }
@@ -143,7 +185,7 @@ const DeviceDetail = () => {
                 <div className="flex justify-between items-center">
                   <h4 className="font-bold">Temperature</h4>
                   <span className="text-3xl font-bold text-blue-600">
-                    {device.status === 'On' && sensorData?.temperatureHumidity?.[0]?.temperature ? 
+                    {(device.status === 'On' || device.status === 'active') && sensorData?.temperatureHumidity?.[0]?.temperature ? 
                       `${sensorData.temperatureHumidity[0].temperature}°C` : '0°C'}
                   </span>
                 </div>
@@ -153,7 +195,7 @@ const DeviceDetail = () => {
                 <div className="flex justify-between items-center">
                   <h4 className="font-bold">Humidity</h4>
                   <span className="text-3xl font-bold text-green-600">
-                    {device.status === 'On' && sensorData?.temperatureHumidity?.[0]?.humidity ? 
+                    {(device.status === 'On' || device.status === 'active') && sensorData?.temperatureHumidity?.[0]?.humidity ? 
                       `${sensorData.temperatureHumidity[0].humidity}%` : '0%'}
                   </span>
                 </div>
@@ -166,7 +208,7 @@ const DeviceDetail = () => {
               <div className="flex justify-between items-center">
                 <h4 className="font-bold">Soil Moisture</h4>
                 <span className="text-3xl font-bold text-green-600">
-                  {device.status === 'On' && sensorData?.soilMoisture?.[0]?.moistureValue ? 
+                  {(device.status === 'On' || device.status === 'active') && sensorData?.soilMoisture?.[0]?.moistureValue ? 
                     `${sensorData.soilMoisture[0].moistureValue}%` : '0%'}
                 </span>
               </div>
@@ -174,13 +216,25 @@ const DeviceDetail = () => {
           )}
           
           {device.deviceType === 'pump_water' && (
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex justify-between items-center">
-                <h4 className="font-bold">Pump Status</h4>
-                <span className="text-3xl font-bold text-blue-600">
-                  {device.status === 'On' && sensorData?.pumpData?.[0]?.status ? 
-                    sensorData.pumpData[0].status : 'Inactive'}
-                </span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-bold">Pump Status</h4>
+                  <span className="text-3xl font-bold text-blue-600">
+                    {(device.status === 'On' || device.status === 'active') && sensorData?.pumpData?.[0]?.status ? 
+                      sensorData.pumpData[0].status : 'Inactive'}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-bold">Pump Speed</h4>
+                  <span className="text-3xl font-bold text-green-600">
+                    {(device.status === 'On' || device.status === 'active') && sensorData?.pumpData?.[0]?.pumpSpeed !== undefined ? 
+                      `${sensorData.pumpData[0].pumpSpeed}%` : '0%'}
+                  </span>
+                </div>
               </div>
             </div>
           )}
@@ -188,54 +242,54 @@ const DeviceDetail = () => {
       </div>
 
       {/* Temperature & Humidity Data Section */}
-      {sensorData && device.deviceType === 'temperature_humidity' && (
+      {sensorData && device?.deviceType === 'temperature_humidity' && (
         <div className="mt-6">
           <h3 className="text-xl font-bold mb-4">Sensor Data</h3>
           
           {/* Temperature & Humidity Data */}
-          {sensorData.temperatureHumidity && sensorData.temperatureHumidity.length > 0 && (
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-              <h4 className="font-bold mb-3">Temperature & Humidity</h4>
-              <div className="overflow-x-auto">
-                <table className="min-w-full bg-white">
-                  <thead>
-                    <tr>
-                      <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        Date & Time
-                      </th>
-                      <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        Temperature (°C)
-                      </th>
-                      <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        Humidity (%)
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sensorData.temperatureHumidity.slice(0, 5).map((data, index) => (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h4 className="font-bold mb-3">Temperature & Humidity</h4>
+            <div className="overflow-x-auto">
+              <table className="min-w-full bg-white">
+                <thead>
+                  <tr>
+                    <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Date & Time
+                    </th>
+                    <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Temperature (°C)
+                    </th>
+                    <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Humidity (%)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sensorData.temperatureHumidity && sensorData.temperatureHumidity.length > 0 ? (
+                    sensorData.temperatureHumidity.slice(0, 5).map((data, index) => (
                       <tr key={index}>
                         <td className="py-2 px-4 border-b border-gray-200">
-                          {new Date(data.readingTime).toLocaleString()}
+                          {data.readingTime ? new Date(data.readingTime).toLocaleString() : 'N/A'}
                         </td>
                         <td className="py-2 px-4 border-b border-gray-200">
-                          {data.temperature}
+                          {data.temperature || 'N/A'}
                         </td>
                         <td className="py-2 px-4 border-b border-gray-200">
-                          {data.humidity}
+                          {data.humidity || 'N/A'}
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="3" className="py-4 px-4 text-center text-gray-500">
+                        No temperature & humidity data available. Device may be inactive or data hasn't been received yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
-          )}
-
-          {sensorData.temperatureHumidity && sensorData.temperatureHumidity.length === 0 && (
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-              <p>No temperature & humidity data available.</p>
-            </div>
-          )}
+          </div>
         </div>
       )}
 
@@ -244,43 +298,43 @@ const DeviceDetail = () => {
         <div className="mt-6">
           <h3 className="text-xl font-bold mb-4">Sensor Data</h3>
           
-          {sensorData.soilMoisture && sensorData.soilMoisture.length > 0 && (
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h4 className="font-bold mb-3">Soil Moisture</h4>
-              <div className="overflow-x-auto">
-                <table className="min-w-full bg-white">
-                  <thead>
-                    <tr>
-                      <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        Date & Time
-                      </th>
-                      <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        Moisture Value (%)
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sensorData.soilMoisture.slice(0, 5).map((data, index) => (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h4 className="font-bold mb-3">Soil Moisture</h4>
+            <div className="overflow-x-auto">
+              <table className="min-w-full bg-white">
+                <thead>
+                  <tr>
+                    <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Date & Time
+                    </th>
+                    <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Moisture Value (%)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sensorData.soilMoisture && sensorData.soilMoisture.length > 0 ? (
+                    sensorData.soilMoisture.slice(0, 5).map((data, index) => (
                       <tr key={index}>
                         <td className="py-2 px-4 border-b border-gray-200">
-                          {new Date(data.readingTime).toLocaleString()}
+                          {data.readingTime ? new Date(data.readingTime).toLocaleString() : 'N/A'}
                         </td>
                         <td className="py-2 px-4 border-b border-gray-200">
-                          {data.moistureValue}
+                          {data.moistureValue !== undefined ? data.moistureValue : 'N/A'}
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="2" className="py-4 px-4 text-center text-gray-500">
+                        No soil moisture data available. Device may be inactive or data hasn't been received yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
-          )}
-
-          {sensorData.soilMoisture && sensorData.soilMoisture.length === 0 && (
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <p>No soil moisture data available.</p>
-            </div>
-          )}
+          </div>
         </div>
       )}
 
@@ -289,49 +343,49 @@ const DeviceDetail = () => {
         <div className="mt-6">
           <h3 className="text-xl font-bold mb-4">Pump Data</h3>
           
-          {sensorData.pumpData && sensorData.pumpData.length > 0 && (
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h4 className="font-bold mb-3">Pump Operation History</h4>
-              <div className="overflow-x-auto">
-                <table className="min-w-full bg-white">
-                  <thead>
-                    <tr>
-                      <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        Date & Time
-                      </th>
-                      <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        Pump Speed
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sensorData.pumpData.slice(0, 5).map((data, index) => (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h4 className="font-bold mb-3">Pump Operation History</h4>
+            <div className="overflow-x-auto">
+              <table className="min-w-full bg-white">
+                <thead>
+                  <tr>
+                    <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Date & Time
+                    </th>
+                    <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Pump Speed
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sensorData.pumpData && sensorData.pumpData.length > 0 ? (
+                    sensorData.pumpData.slice(0, 5).map((data, index) => (
                       <tr key={index}>
                         <td className="py-2 px-4 border-b border-gray-200">
-                          {new Date(data.readingTime).toLocaleString()}
+                          {data.readingTime ? new Date(data.readingTime).toLocaleString() : 'N/A'}
                         </td>
                         <td className="py-2 px-4 border-b border-gray-200">
-                          {data.status}
+                          {data.status || 'N/A'}
                         </td>
                         <td className="py-2 px-4 border-b border-gray-200">
-                          {data.pumpSpeed}
+                          {data.pumpSpeed !== undefined ? `${data.pumpSpeed}%` : 'N/A'}
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="3" className="py-4 px-4 text-center text-gray-500">
+                        No pump operation history available. Device may be inactive or data hasn't been received yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
-          )}
-
-          {sensorData.pumpData && sensorData.pumpData.length === 0 && (
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <p>No pump operation history available.</p>
-            </div>
-          )}
+          </div>
         </div>
       )}
     </div>

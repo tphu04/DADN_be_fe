@@ -1,6 +1,6 @@
 const prisma = require('../../config/database');
 
-// Các hàm truy vấn dữ liệu cảm biến sử dụng Prisma
+// Các hàm truy vấn dữ liệu cảm biến sử dụng Prisma (không còn bảng SensorData nữa)
 const SensorData = {
   // Lấy dữ liệu nhiệt độ và độ ẩm
   getTemperatureHumidityData: async (deviceId, limit = 100) => {
@@ -59,6 +59,17 @@ const SensorData = {
         });
       case 'soil_moisture':
         return prisma.soilMoistureData.findMany({
+          where: {
+            deviceId: { in: intDeviceIds }
+          },
+          orderBy: {
+            readingTime: 'desc'
+          },
+          distinct: ['deviceId'],
+          take: intDeviceIds.length
+        });
+      case 'pump_water':
+        return prisma.pumpWaterData.findMany({
           where: {
             deviceId: { in: intDeviceIds }
           },

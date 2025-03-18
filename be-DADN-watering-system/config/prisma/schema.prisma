@@ -64,7 +64,6 @@ model IoTDevice {
   pumpWaterData           PumpWaterData[]          @relation("DevicePumpWater")
   configurations          Configuration[]          @relation("DeviceConfigurations")
   logData                 LogData[]                @relation("DeviceLogs")
-  sensorData              SensorData[]             @relation("DeviceSensorData")
 }
 
 model TemperatureHumidityData {
@@ -132,16 +131,5 @@ model Feed {
   lastValue   Float?
   deviceId    Int
   device      IoTDevice    @relation("DeviceFeeds", fields: [deviceId], references: [id])
-  sensorData  SensorData[] @relation("FeedSensorData")
 }
 
-model SensorData {
-  id          Int       @id @default(autoincrement())
-  value       Float
-  timestamp   DateTime  @default(now())
-  isAbnormal  Boolean   @default(false)
-  deviceId    Int
-  device      IoTDevice @relation("DeviceSensorData", fields: [deviceId], references: [id], map: "sensordata_device_fk")
-  feedId      Int
-  feed        Feed      @relation("FeedSensorData", fields: [feedId], references: [id])
-}

@@ -86,33 +86,38 @@ const deviceController = {
             }
 
             // Kiểm tra trạng thái hoạt động của thiết bị
-            if (device.status === 'Off') {
-                return res.status(200).json({
-                    success: true,
-                    message: 'Device is inactive',
-                    deviceStatus: 'Off',
-                    data: []
-                });
-            }
+            const isDeviceActive = device.status === 'On' || device.status === 'active';
+            console.log(`Device status: ${device.status}, isActive: ${isDeviceActive}`);
 
             // Lấy dữ liệu theo loại thiết bị
-            const data = await prisma.temperatureHumidityData.findMany({
-                where: { deviceId: parseInt(id) },
-                orderBy: { readingTime: 'desc' },
-                take: parseInt(limit)
-            });
+            let data = [];
+            
+            if (isDeviceActive && device.deviceType === 'temperature_humidity') {
+                data = await prisma.temperatureHumidityData.findMany({
+                    where: { deviceId: parseInt(id) },
+                    orderBy: { readingTime: 'desc' },
+                    take: parseInt(limit)
+                });
+            }
+            
+            // Nếu không có dữ liệu, trả về mảng rỗng
+            if (!data || data.length === 0) {
+                console.log('No temperature/humidity data found, returning empty array');
+                data = [];
+            }
 
             return res.status(200).json({
                 success: true,
-                deviceStatus: 'On',
-                data
+                deviceStatus: device.status,
+                data: data
             });
         } catch (error) {
-            console.error(error);
+            console.error('Error fetching temperature/humidity data:', error);
             return res.status(500).json({
                 success: false,
                 message: 'Failed to fetch temperature and humidity data',
-                error: error.message
+                error: error.message,
+                data: [] // Always include data property even in error response
             });
         }
     },
@@ -140,33 +145,38 @@ const deviceController = {
             }
 
             // Kiểm tra trạng thái hoạt động của thiết bị
-            if (device.status === 'Off') {
-                return res.status(200).json({
-                    success: true,
-                    message: 'Device is inactive',
-                    deviceStatus: 'Off',
-                    data: []
-                });
-            }
+            const isDeviceActive = device.status === 'On' || device.status === 'active';
+            console.log(`Device status: ${device.status}, isActive: ${isDeviceActive}`);
 
             // Lấy dữ liệu theo loại thiết bị
-            const data = await prisma.soilMoistureData.findMany({
-                where: { deviceId: parseInt(id) },
-                orderBy: { readingTime: 'desc' },
-                take: parseInt(limit)
-            });
+            let data = [];
+            
+            if (isDeviceActive && device.deviceType === 'soil_moisture') {
+                data = await prisma.soilMoistureData.findMany({
+                    where: { deviceId: parseInt(id) },
+                    orderBy: { readingTime: 'desc' },
+                    take: parseInt(limit)
+                });
+            }
+            
+            // Nếu không có dữ liệu, trả về mảng rỗng
+            if (!data || data.length === 0) {
+                console.log('No soil moisture data found, returning empty array');
+                data = [];
+            }
 
             return res.status(200).json({
                 success: true,
-                deviceStatus: 'On',
-                data
+                deviceStatus: device.status,
+                data: data
             });
         } catch (error) {
-            console.error(error);
+            console.error('Error fetching soil moisture data:', error);
             return res.status(500).json({
                 success: false,
                 message: 'Failed to fetch soil moisture data',
-                error: error.message
+                error: error.message,
+                data: [] // Always include data property even in error response
             });
         }
     },
@@ -194,33 +204,38 @@ const deviceController = {
             }
 
             // Kiểm tra trạng thái hoạt động của thiết bị
-            if (device.status === 'Off') {
-                return res.status(200).json({
-                    success: true,
-                    message: 'Device is inactive',
-                    deviceStatus: 'Off',
-                    data: []
-                });
-            }
+            const isDeviceActive = device.status === 'On' || device.status === 'active';
+            console.log(`Device status: ${device.status}, isActive: ${isDeviceActive}`);
 
             // Lấy dữ liệu theo loại thiết bị
-            const data = await prisma.pumpWaterData.findMany({
-                where: { deviceId: parseInt(id) },
-                orderBy: { readingTime: 'desc' },
-                take: parseInt(limit)
-            });
+            let data = [];
+            
+            if (isDeviceActive && device.deviceType === 'pump_water') {
+                data = await prisma.pumpWaterData.findMany({
+                    where: { deviceId: parseInt(id) },
+                    orderBy: { readingTime: 'desc' },
+                    take: parseInt(limit)
+                });
+            }
+            
+            // Nếu không có dữ liệu, trả về mảng rỗng
+            if (!data || data.length === 0) {
+                console.log('No pump data found, returning empty array');
+                data = [];
+            }
 
             return res.status(200).json({
                 success: true,
-                deviceStatus: 'On',
-                data
+                deviceStatus: device.status,
+                data: data
             });
         } catch (error) {
-            console.error(error);
+            console.error('Error fetching pump water data:', error);
             return res.status(500).json({
                 success: false,
                 message: 'Failed to fetch pump water data',
-                error: error.message
+                error: error.message,
+                data: [] // Always include data property even in error response
             });
         }
     },
