@@ -77,7 +77,7 @@ const deviceController = {
                 });
             }
 
-            console.log('Fetching temperature data for device ID:', id);
+            // console.log('Fetching temperature data for device ID:', id);
 
             // Xác minh thiết bị tồn tại và thuộc về người dùng
             const device = await Device.findById(id);
@@ -87,7 +87,7 @@ const deviceController = {
 
             // Kiểm tra trạng thái hoạt động của thiết bị
             const isDeviceActive = device.status === 'On' || device.status === 'active';
-            console.log(`Device status: ${device.status}, isActive: ${isDeviceActive}`);
+            // console.log(`Device status: ${device.status}, isActive: ${isDeviceActive}`);
 
             // Lấy dữ liệu theo loại thiết bị
             let data = [];
@@ -136,7 +136,7 @@ const deviceController = {
                 });
             }
 
-            console.log('Fetching soil moisture data for device ID:', id);
+            // console.log('Fetching soil moisture data for device ID:', id);
 
             // Xác minh thiết bị tồn tại và thuộc về người dùng
             const device = await Device.findById(id);
@@ -146,7 +146,7 @@ const deviceController = {
 
             // Kiểm tra trạng thái hoạt động của thiết bị
             const isDeviceActive = device.status === 'On' || device.status === 'active';
-            console.log(`Device status: ${device.status}, isActive: ${isDeviceActive}`);
+            // console.log(`Device status: ${device.status}, isActive: ${isDeviceActive}`);
 
             // Lấy dữ liệu theo loại thiết bị
             let data = [];
@@ -195,7 +195,7 @@ const deviceController = {
                 });
             }
 
-            console.log('Fetching pump data for device ID:', id);
+            // console.log('Fetching pump data for device ID:', id);
 
             // Xác minh thiết bị tồn tại và thuộc về người dùng
             const device = await Device.findById(id);
@@ -205,7 +205,7 @@ const deviceController = {
 
             // Kiểm tra trạng thái hoạt động của thiết bị
             const isDeviceActive = device.status === 'On' || device.status === 'active';
-            console.log(`Device status: ${device.status}, isActive: ${isDeviceActive}`);
+            // console.log(`Device status: ${device.status}, isActive: ${isDeviceActive}`);
 
             // Lấy dữ liệu theo loại thiết bị
             let data = [];

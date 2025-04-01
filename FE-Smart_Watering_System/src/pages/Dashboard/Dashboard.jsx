@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import SensorServices from "../../services/SensorServices";
 import DeviceServices from "../../services/DeviceServices";
-import socketService from "../../services/socketService";
 import DeviceList from "../../components/DeviceList/DeviceList";
+import { useSensorData } from "../../context/SensorContext";
 
 // Icon
 import IconIncrease from "../../assets/images/icon-increase.svg";
@@ -10,267 +10,49 @@ import Icon3Dots from "../../assets/images/icon-3dots.svg";
 import IconChart from "../../assets/images/icon-chart.svg";
 import IconDecrease from "../../assets/images/icon-decrease.svg";
 
-const SENSOR_DATA_KEY = 'smart_watering_sensor_data';
-const PREV_DATA_KEY = 'smart_watering_prev_data';
-
-// Lấy dữ liệu cảm biến đã lưu từ localStorage
-const getSavedSensorData = () => {
-  try {
-    const savedData = localStorage.getItem(SENSOR_DATA_KEY);
-    console.log('Trying to load saved data:', savedData);
-    
-    if (savedData) {
-      const parsedData = JSON.parse(savedData);
-      console.log('Successfully loaded saved sensor data:', parsedData);
-      
-      // Kiểm tra xem dữ liệu có hợp lệ không
-      if (parsedData && typeof parsedData === 'object' && 'soilMoisture' in parsedData) {
-        return {
-          ...parsedData,
-          loading: false
-        };
-      }
-    }
-  } catch (e) {
-    console.error('Error loading saved sensor data:', e);
-  }
-  
-  console.log('Using default sensor data');
-  // Trả về giá trị mặc định nếu không có dữ liệu lưu trữ
-  return {
-    soilMoisture: 0,
-    temperature: 0,
-    airHumidity: 0,
-    pumpWater: {
-      status: 'Inactive',
-      speed: 0
-    },
-    loading: true,
-    error: null
-  };
-};
-
-// Lấy dữ liệu cảm biến trước đó từ localStorage
-const getSavedPrevData = () => {
-  try {
-    const savedData = localStorage.getItem(PREV_DATA_KEY);
-    if (savedData) {
-      const parsedData = JSON.parse(savedData);
-      console.log('Successfully loaded previous sensor data:', parsedData);
-      
-      // Kiểm tra xem dữ liệu có hợp lệ không
-      if (parsedData && typeof parsedData === 'object' && 'soilMoisture' in parsedData) {
-        return parsedData;
-      }
-    }
-  } catch (e) {
-    console.error('Error loading saved previous data:', e);
-  }
-  
-  console.log('Using default previous data');
-  // Trả về giá trị mặc định nếu không có dữ liệu lưu trữ
-  return {
-    soilMoisture: 0,
-    temperature: 0,
-    airHumidity: 0,
-    pumpWater: {
-      speed: 0
-    }
-  };
-};
-
-// Kiểm tra khả năng sử dụng localStorage
-const isLocalStorageAvailable = () => {
-  try {
-    const testKey = '__test_key__';
-    localStorage.setItem(testKey, testKey);
-    localStorage.removeItem(testKey);
-    return true;
-  } catch (e) {
-    console.error('localStorage not available:', e);
-    return false;
-  }
+// Ngưỡng tối đa cho mỗi loại sensor
+const THRESHOLD = {
+  SOIL_MOISTURE: 100, // Độ ẩm đất tối đa (%)
+  TEMPERATURE: 40,    // Nhiệt độ tối đa (°C)
+  AIR_HUMIDITY: 100,  // Độ ẩm không khí tối đa (%)
+  PUMP_SPEED: 100     // Tốc độ máy bơm tối đa (%)
 };
 
 const Dashboard = () => {
-  // Khởi tạo state với dữ liệu từ localStorage
-  const [sensorData, setSensorData] = useState(getSavedSensorData());
-  const [prevData, setPrevData] = useState(getSavedPrevData());
-  const [storageAvailable, setStorageAvailable] = useState(true);
-
+  // Sử dụng context để lấy dữ liệu sensor thay vì quản lý state riêng
+  const { 
+    sensorData, 
+    prevData, 
+    socketConnected, 
+    calculatePercentChange,
+    updateFromAPI,
+    forceSaveData,
+    clearSavedData
+  } = useSensorData();
+  
+  // State cho danh sách thiết bị
   const [devices, setDevices] = useState([]);
   const [isLoadingDevices, setIsLoadingDevices] = useState(true);
-  const [socketConnected, setSocketConnected] = useState(false);
+  const [showDebug, setShowDebug] = useState(true);
 
-  // Kiểm tra localStorage
+  // Lấy dữ liệu từ API khi component mount
   useEffect(() => {
-    setStorageAvailable(isLocalStorageAvailable());
-  }, []);
-
-  // Lưu dữ liệu cảm biến vào localStorage khi có thay đổi
-  useEffect(() => {
-    if (!storageAvailable) return;
+    console.log('Dashboard: Component mounted');
     
-    // Chỉ lưu khi đã tải xong dữ liệu và không có lỗi
-    if (!sensorData.loading && !sensorData.error) {
-      try {
-        const dataToSave = {
-          soilMoisture: sensorData.soilMoisture,
-          temperature: sensorData.temperature,
-          airHumidity: sensorData.airHumidity,
-          pumpWater: sensorData.pumpWater,
-          loading: false,
-          error: null
-        };
+    // Fetch dữ liệu mới từ API (nếu cần)
+    const fetchInitialData = async () => {
+      console.log('Dashboard: Checking if API fetch is needed...');
+      
+      // Cập nhật từ API nếu cần (quyết định được xử lý trong updateFromAPI)
+      if (sensorData.loading) {
+        console.log('Dashboard: Fetching fresh data from API');
+        await updateFromAPI(SensorServices);
+        // console.log(`hiện data hiện tại ${res}`)
+      } else {
+        console.log('Dashboard: Using existing sensor data:', sensorData);
         
-        localStorage.setItem(SENSOR_DATA_KEY, JSON.stringify(dataToSave));
-        console.log('Saved sensor data to localStorage:', dataToSave);
-      } catch (e) {
-        console.error('Error saving sensor data to localStorage:', e);
-      }
-    }
-  }, [sensorData, storageAvailable]);
-
-  // Lưu dữ liệu trước đó vào localStorage
-  useEffect(() => {
-    if (!storageAvailable) return;
-    
-    try {
-      localStorage.setItem(PREV_DATA_KEY, JSON.stringify(prevData));
-      console.log('Saved previous sensor data to localStorage');
-    } catch (e) {
-      console.error('Error saving previous data to localStorage:', e);
-    }
-  }, [prevData, storageAvailable]);
-
-  // Hàm tính phần trăm thay đổi
-  const calculatePercentChange = (current, previous) => {
-    if (previous === 0) return 0;
-    return Math.round(((current - previous) / previous) * 100);
-  };
-
-  // Xử lý dữ liệu từ WebSocket
-  const handleSensorUpdate = (data) => {
-    console.log('Received sensor update:', data);
-    
-    // Lưu dữ liệu cũ trước khi cập nhật
-    setPrevData({
-      soilMoisture: sensorData.soilMoisture,
-      temperature: sensorData.temperature,
-      airHumidity: sensorData.airHumidity,
-      pumpWater: {
-        speed: sensorData.pumpWater.speed
-      }
-    });
-
-    // Cập nhật dữ liệu mới dựa trên loại cảm biến
-    if (data.type === 'temperature_humidity') {
-      setSensorData(prev => {
-        const updated = {
-          ...prev,
-          temperature: data.data.temperature || prev.temperature,
-          airHumidity: data.data.humidity || prev.airHumidity,
-          loading: false
-        };
-        return updated;
-      });
-    } 
-    else if (data.type === 'soil_moisture') {
-      setSensorData(prev => {
-        const updated = {
-          ...prev,
-          soilMoisture: data.data.soilMoisture || prev.soilMoisture,
-          loading: false
-        };
-        return updated;
-      });
-    }
-    else if (data.type === 'pump_water') {
-      setSensorData(prev => {
-        const updated = {
-          ...prev,
-          pumpWater: {
-            ...prev.pumpWater,
-            status: data.data.status || prev.pumpWater.status,
-            speed: data.data.pumpSpeed || prev.pumpWater.speed
-          },
-          loading: false
-        };
-        return updated;
-      });
-    }
-  };
-
-  // Lấy dữ liệu cảm biến từ API
-  useEffect(() => {
-    const fetchSensorData = async () => {
-      try {
-        console.log('Fetching sensor data from API...');
-        const result = await SensorServices.getLatestSensorData();
-        console.log('API result:', result);
-        
-        // Nếu có dữ liệu
-        if (result.success && result.data.length > 0) {
-          // Lưu dữ liệu trước đó
-          setPrevData({
-            soilMoisture: sensorData.soilMoisture || 0,
-            temperature: sensorData.temperature || 0,
-            airHumidity: sensorData.airHumidity || 0,
-            pumpWater: {
-              speed: sensorData.pumpWater?.speed || 0
-            }
-          });
-          
-          // Khởi tạo giá trị mặc định
-          let newSensorData = {
-            soilMoisture: 0,
-            temperature: 0,
-            airHumidity: 0,
-            pumpWater: {
-              status: 'Inactive',
-              speed: 0
-            },
-            loading: false,
-            error: null
-          };
-          
-          // Xử lý từng loại cảm biến
-          for (const sensor of result.data) {
-            if (sensor.deviceType === 'soil_moisture' && 'soilMoisture' in sensor) {
-              newSensorData.soilMoisture = sensor.soilMoisture;
-            } else if (sensor.deviceType === 'temperature_humidity') {
-              if ('temperature' in sensor) {
-                newSensorData.temperature = sensor.temperature;
-              }
-              if ('airHumidity' in sensor) {
-                newSensorData.airHumidity = sensor.airHumidity;
-              }
-            } else if (sensor.deviceType === 'pump_water') {
-              if ('status' in sensor) {
-                newSensorData.pumpWater.status = sensor.status;
-              }
-              if ('pumpSpeed' in sensor) {
-                newSensorData.pumpWater.speed = sensor.pumpSpeed;
-              }
-            }
-          }
-          
-          console.log('Updating state with new sensor data:', newSensorData);
-          setSensorData(newSensorData);
-          
-          // Lưu ngay lập tức vào localStorage
-          if (storageAvailable) {
-            localStorage.setItem(SENSOR_DATA_KEY, JSON.stringify(newSensorData));
-            console.log('Immediately saved new sensor data to localStorage');
-          }
-        }
-      } catch (error) {
-        setSensorData(prev => ({
-          ...prev,
-          loading: false,
-          error: "Failed to fetch sensor data"
-        }));
-        console.error("Error fetching sensor data:", error);
+        // Ensure we save existing data to localStorage
+        forceSaveData();
       }
     };
 
@@ -282,61 +64,32 @@ const Dashboard = () => {
         setDevices(result);
         setIsLoadingDevices(false);
       } catch (error) {
-        console.error("Error fetching devices:", error);
+        console.error("Dashboard: Error fetching devices:", error);
         setIsLoadingDevices(false);
       }
     };
 
-    // Kết nối WebSocket
-    try {
-      socketService.connect();
-      
-      // Kiểm tra trạng thái kết nối
-      const checkSocketConnection = setInterval(() => {
-        const connected = socketService.isSocketConnected();
-        setSocketConnected(connected);
-        console.log('Socket connected:', connected);
-      }, 5000);
-      
-      // Đăng ký lắng nghe sự kiện cập nhật từ server
-      socketService.on('sensor-update', handleSensorUpdate);
-      
-      // Lắng nghe sự kiện chào mừng từ server
-      socketService.getSocket().on('welcome', (data) => {
-        console.log('Welcome message:', data);
-      });
-
-      // Lấy dữ liệu ban đầu và danh sách thiết bị
-      // Chỉ fetch dữ liệu mới nếu không có dữ liệu trong localStorage hoặc đang loading
-      if (sensorData.loading) {
-        fetchSensorData();
-      } else {
-        console.log('Using cached sensor data from localStorage:', sensorData);
-      }
-      fetchDevices();
-
-      // Cleanup khi component unmount
-      return () => {
-        clearInterval(checkSocketConnection);
-        socketService.off('sensor-update', handleSensorUpdate);
-      };
-    } catch (error) {
-      console.error('Error connecting to WebSocket:', error);
-      
-      // Nếu không kết nối được WebSocket, vẫn lấy dữ liệu từ API theo định kỳ
-      if (sensorData.loading) {
-        fetchSensorData();
-      }
-      fetchDevices();
-      
-      // Thiết lập interval để cập nhật dữ liệu mỗi 30 giây
-      const interval = setInterval(fetchSensorData, 30000);
-      
-      // Xóa interval khi component unmount
-      return () => clearInterval(interval);
-    }
+    // Thực hiện fetch dữ liệu
+    fetchInitialData();
+    fetchDevices();
+    
+    // Force save data khi component unmount
+    return () => {
+      console.log('Dashboard: Component unmounting, saving data...');
+      forceSaveData();
+    };
   }, []);
 
+  // Lưu dữ liệu vào localStorage khi có thay đổi
+  useEffect(() => {
+    // Khi dữ liệu sensor thay đổi, lưu vào localStorage
+    if (!sensorData.loading) {
+      console.log('Dashboard: Sensor data changed, forcing save');
+      forceSaveData();
+    }
+  }, [sensorData]);
+
+  // Tính toán phần trăm thay đổi cho từng loại dữ liệu
   const soilMoistureChange = calculatePercentChange(
     sensorData.soilMoisture,
     prevData.soilMoisture
@@ -357,21 +110,80 @@ const Dashboard = () => {
     prevData.pumpWater?.speed || 0
   );
 
+  // Xử lý nút xoá dữ liệu
+  const handleClearData = () => {
+    if (window.confirm('Bạn có chắc chắn muốn xoá dữ liệu đã lưu? Trang sẽ tải lại sau khi xoá.')) {
+      clearSavedData();
+      window.location.reload();
+    }
+  };
+
+  // Kiểm tra xem giá trị có vượt ngưỡng không và trả về class tương ứng
+  const getThresholdClass = (value, threshold) => {
+    return value > threshold ? 'bg-red-200 border-2 border-red-500' : '';
+  };
+
+  // Kiểm tra từng loại dữ liệu
+  const soilMoistureThresholdClass = getThresholdClass(sensorData.soilMoisture, THRESHOLD.SOIL_MOISTURE);
+  const temperatureThresholdClass = getThresholdClass(sensorData.temperature, THRESHOLD.TEMPERATURE);
+  const airHumidityThresholdClass = getThresholdClass(sensorData.airHumidity, THRESHOLD.AIR_HUMIDITY);
+  const pumpSpeedThresholdClass = getThresholdClass(sensorData.pumpWater?.speed || 0, THRESHOLD.PUMP_SPEED);
+
   return (
     <div className="flex flex-col space-y-6">
       {/* Socket connection status */}
-      {/* <div className={`p-2 text-sm rounded ${socketConnected ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+      {/* <div className={`p-2 text-xs rounded ${socketConnected ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
         <span className="font-medium">WebSocket:</span> {socketConnected ? 'Connected' : 'Disconnected'} 
         {!socketConnected && ' - Using periodic updates'}
+        <button 
+          onClick={() => setShowDebug(!showDebug)} 
+          className="ml-2 px-2 bg-blue-500 text-white rounded text-xs"
+        >
+          {showDebug ? 'Ẩn' : 'Hiện'} Debug
+        </button>
       </div> */}
+      
+      {/* Debug info */}
+      {/* {showDebug && (
+        <div className="text-xs bg-blue-50 p-2 rounded mb-2">
+          <div>Soil: {sensorData.soilMoisture}%, Temp: {sensorData.temperature}°C, Humidity: {sensorData.airHumidity}%</div>
+          <div>Pump: {sensorData.pumpWater?.status} ({sensorData.pumpWater?.speed}%)</div>
+          <div>State: {sensorData.loading ? 'Loading' : 'Loaded'}</div>
+          <div className="flex space-x-2 mt-1">
+            <button 
+              onClick={forceSaveData}
+              className="px-2 py-1 bg-blue-500 text-white rounded"
+            >
+              Lưu Dữ Liệu
+            </button>
+            <button 
+              onClick={handleClearData}
+              className="px-2 py-1 bg-red-500 text-white rounded"
+            >
+              Xoá Dữ Liệu
+            </button>
+          </div>
+          <div className="mt-1">
+            <span className="font-semibold">Ngưỡng tối đa:</span> Đất: {THRESHOLD.SOIL_MOISTURE}%, 
+            Nhiệt độ: {THRESHOLD.TEMPERATURE}°C, 
+            Độ ẩm: {THRESHOLD.AIR_HUMIDITY}%, 
+            Bơm: {THRESHOLD.PUMP_SPEED}%
+          </div>
+        </div>
+      )} */}
       
       {/* Sensor Data cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Soil Moisture  */}
-        <div className="w-full h-[170px] bg-gradient-to-b from-[#0093E9] to-[#80D0C7] rounded relative">
+        <div className={`w-full h-[170px] bg-gradient-to-b from-[#0093E9] to-[#80D0C7] rounded relative ${soilMoistureThresholdClass}`}>
           <div className="p-[12px]">
             <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
-              <div>Soil Moisture</div>
+              <div>
+                Soil Moisture
+                {sensorData.soilMoisture > THRESHOLD.SOIL_MOISTURE && 
+                  <span className="ml-2 text-red-700 font-bold">⚠️ Quá ngưỡng!</span>
+                }
+              </div>
               <button className="w-[20px] h-[20px]">
                 <img src={Icon3Dots} alt="icon 3 dots" />
               </button>
@@ -395,10 +207,15 @@ const Dashboard = () => {
         </div>
 
         {/* Temperature  */}
-        <div className="w-full h-[170px] bg-gradient-to-b from-[#FF55AACD] to-[#FBDA61] rounded relative">
+        <div className={`w-full h-[170px] bg-gradient-to-b from-[#FF55AACD] to-[#FBDA61] rounded relative ${temperatureThresholdClass}`}>
           <div className="p-[12px]">
             <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
-              <div>Temperature</div>
+              <div>
+                Temperature
+                {sensorData.temperature > THRESHOLD.TEMPERATURE && 
+                  <span className="ml-2 text-red-700 font-bold">⚠️ Quá ngưỡng!</span>
+                }
+              </div>
               <button className="w-[20px] h-[20px]">
                 <img src={Icon3Dots} alt="icon 3 dots" />
               </button>
@@ -422,10 +239,15 @@ const Dashboard = () => {
         </div>
 
         {/* Air Humidity  */}
-        <div className="w-full h-[170px] bg-gradient-to-b from-[#64E39E] to-[#53ECE5] rounded relative">
+        <div className={`w-full h-[170px] bg-gradient-to-b from-[#64E39E] to-[#53ECE5] rounded relative ${airHumidityThresholdClass}`}>
           <div className="p-[12px]">
             <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
-              <div>Air Humidity</div>
+              <div>
+                Air Humidity
+                {sensorData.airHumidity > THRESHOLD.AIR_HUMIDITY && 
+                  <span className="ml-2 text-red-700 font-bold">⚠️ Quá ngưỡng!</span>
+                }
+              </div>
               <button className="w-[20px] h-[20px]">
                 <img src={Icon3Dots} alt="icon 3 dots" />
               </button>
@@ -449,10 +271,15 @@ const Dashboard = () => {
         </div>
 
         {/* Pump Water  */}
-        <div className="w-full h-[170px] bg-gradient-to-b from-[#8E7AFF] to-[#A682FF] rounded relative">
+        <div className={`w-full h-[170px] bg-gradient-to-b from-[#8E7AFF] to-[#A682FF] rounded relative ${pumpSpeedThresholdClass}`}>
           <div className="p-[12px]">
             <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
-              <div>Pump Water</div>
+              <div>
+                Pump Water
+                {(sensorData.pumpWater?.speed || 0) > THRESHOLD.PUMP_SPEED && 
+                  <span className="ml-2 text-red-700 font-bold">⚠️ Quá ngưỡng!</span>
+                }
+              </div>
               <button className="w-[20px] h-[20px]">
                 <img src={Icon3Dots} alt="icon 3 dots" />
               </button>

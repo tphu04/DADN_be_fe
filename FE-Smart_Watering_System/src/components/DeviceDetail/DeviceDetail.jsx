@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import DeviceServices from '../../services/DeviceServices';
+import { useSensorData } from '../../context/SensorContext';
 
 const DeviceDetail = () => {
   const { deviceId } = useParams();
@@ -9,33 +10,36 @@ const DeviceDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Sử dụng SensorContext để có thể truy cập vào trạng thái socket và sensor data toàn cục
+  const { socketConnected } = useSensorData();
+
   useEffect(() => {
     const fetchDeviceDetails = async () => {
       try {
         setLoading(true);
-        console.log('Fetching device with ID:', deviceId);
-        
+        console.log('DeviceDetail: Fetching device with ID:', deviceId);
+
         // Lấy thông tin thiết bị
         const deviceData = await DeviceServices.getDeviceById(deviceId);
-        console.log('Device data received:', deviceData);
-        
+        console.log('DeviceDetail: Device data received:', deviceData);
+
         if (deviceData.device) {
           // API trả về dữ liệu trong cấu trúc { device, latestData, historicalData }
           setDevice(deviceData.device);
-          
+
           // Xử lý dữ liệu cảm biến từ dữ liệu lịch sử
           if (deviceData.device.deviceType === 'temperature_humidity') {
-            console.log('Temperature humidity historical data:', deviceData.historicalData);
+            console.log('DeviceDetail: Temperature humidity historical data:', deviceData.historicalData);
             setSensorData({
               temperatureHumidity: deviceData.historicalData || []
             });
           } else if (deviceData.device.deviceType === 'soil_moisture') {
-            console.log('Soil moisture historical data:', deviceData.historicalData);
+            console.log('DeviceDetail: Soil moisture historical data:', deviceData.historicalData);
             setSensorData({
               soilMoisture: deviceData.historicalData || []
             });
           } else if (deviceData.device.deviceType === 'pump_water') {
-            console.log('Pump water historical data:', deviceData.historicalData);
+            console.log('DeviceDetail: Pump water historical data:', deviceData.historicalData);
             setSensorData({
               pumpData: deviceData.historicalData || []
             });
@@ -43,20 +47,20 @@ const DeviceDetail = () => {
         } else {
           // Direct data structure (fallback if API doesn't return the expected format)
           setDevice(deviceData);
-          
+
           // Lấy dữ liệu cảm biến bất kể trạng thái thiết bị
           if (deviceData.deviceType === 'temperature_humidity') {
             try {
               const tempHumidResponse = await DeviceServices.getTemperatureHumidityData(deviceId);
-              console.log('Temperature humidity data response:', tempHumidResponse);
-              
+              console.log('DeviceDetail: Temperature humidity data response:', tempHumidResponse);
+
               // Check if the response contains a data property
               const tempHumidData = tempHumidResponse.data || tempHumidResponse;
               setSensorData({
                 temperatureHumidity: tempHumidData
               });
             } catch (err) {
-              console.error('Error fetching temperature humidity data:', err);
+              console.error('DeviceDetail: Error fetching temperature humidity data:', err);
               setSensorData({
                 temperatureHumidity: []
               });
@@ -64,14 +68,14 @@ const DeviceDetail = () => {
           } else if (deviceData.deviceType === 'soil_moisture') {
             try {
               const soilResponse = await DeviceServices.getSoilMoistureData(deviceId);
-              console.log('Soil moisture data response:', soilResponse);
-              
+              console.log('DeviceDetail: Soil moisture data response:', soilResponse);
+
               const soilData = soilResponse.data || soilResponse;
               setSensorData({
                 soilMoisture: soilData
               });
             } catch (err) {
-              console.error('Error fetching soil moisture data:', err);
+              console.error('DeviceDetail: Error fetching soil moisture data:', err);
               setSensorData({
                 soilMoisture: []
               });
@@ -79,24 +83,24 @@ const DeviceDetail = () => {
           } else if (deviceData.deviceType === 'pump_water') {
             try {
               const pumpResponse = await DeviceServices.getPumpWaterData(deviceId);
-              console.log('Pump water data response:', pumpResponse);
-              
+              console.log('DeviceDetail: Pump water data response:', pumpResponse);
+
               const pumpData = pumpResponse.data || pumpResponse;
               setSensorData({
                 pumpData: pumpData
               });
             } catch (err) {
-              console.error('Error fetching pump data:', err);
+              console.error('DeviceDetail: Error fetching pump data:', err);
               setSensorData({
                 pumpData: []
               });
             }
           }
         }
-        
+
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching device details:', error);
+        console.error('DeviceDetail: Error fetching device details:', error);
         setError('Failed to load device details: ' + (error.message || 'Unknown error'));
         setLoading(false);
       }
@@ -120,7 +124,7 @@ const DeviceDetail = () => {
 
   const getStatusColor = (status) => {
     if (!status) return 'bg-gray-500 text-white';
-    
+
     switch (status.toLowerCase()) {
       case 'On':
       case 'active':
@@ -129,7 +133,7 @@ const DeviceDetail = () => {
       case 'inactive':
         return 'bg-red-500 text-white';
       case 'maintenance':
-        return 'bg-yellow-500 text-white';        
+        return 'bg-yellow-500 text-white';
       default:
         return 'bg-gray-500 text-white';
     }
@@ -149,16 +153,21 @@ const DeviceDetail = () => {
 
   return (
     <div className="p-6">
+      {/* Socket connection status */}
+      {/* <div className={`p-2 text-xs rounded mb-4 ${socketConnected ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+        <span className="font-medium">WebSocket:</span> {socketConnected ? 'Connected' : 'Disconnected'} 
+      </div> */}
+
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold">{device.deviceCode || 'Unnamed Device'}</h2>
-          <span 
+          <span
             className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(device.status)}`}
           >
             {device.status || 'Unknown'}
           </span>
         </div>
-        
+
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
             <p className="text-gray-500">Device Type</p>
@@ -185,53 +194,53 @@ const DeviceDetail = () => {
                 <div className="flex justify-between items-center">
                   <h4 className="font-bold">Temperature</h4>
                   <span className="text-3xl font-bold text-blue-600">
-                    {(device.status === 'On' || device.status === 'active') && sensorData?.temperatureHumidity?.[0]?.temperature ? 
+                    {(device.status === 'On' || device.status === 'active') && sensorData?.temperatureHumidity?.[0]?.temperature !== undefined ?
                       `${sensorData.temperatureHumidity[0].temperature}°C` : '0°C'}
                   </span>
                 </div>
               </div>
-              
+
               <div className="bg-white rounded-lg shadow-md p-6">
                 <div className="flex justify-between items-center">
                   <h4 className="font-bold">Humidity</h4>
                   <span className="text-3xl font-bold text-green-600">
-                    {(device.status === 'On' || device.status === 'active') && sensorData?.temperatureHumidity?.[0]?.humidity ? 
+                    {(device.status === 'On' || device.status === 'active') && sensorData?.temperatureHumidity?.[0]?.humidity !== undefined ?
                       `${sensorData.temperatureHumidity[0].humidity}%` : '0%'}
                   </span>
                 </div>
               </div>
             </>
           )}
-          
+
           {device.deviceType === 'soil_moisture' && (
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex justify-between items-center">
                 <h4 className="font-bold">Soil Moisture</h4>
                 <span className="text-3xl font-bold text-green-600">
-                  {(device.status === 'On' || device.status === 'active') && sensorData?.soilMoisture?.[0]?.moistureValue ? 
+                  {(device.status === 'On' || device.status === 'active') && sensorData?.soilMoisture?.[0]?.moistureValue !== undefined ?
                     `${sensorData.soilMoisture[0].moistureValue}%` : '0%'}
                 </span>
               </div>
             </div>
           )}
-          
+
           {device.deviceType === 'pump_water' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-white rounded-lg shadow-md p-6">
                 <div className="flex justify-between items-center">
                   <h4 className="font-bold">Pump Status</h4>
                   <span className="text-3xl font-bold text-blue-600">
-                    {(device.status === 'On' || device.status === 'active') && sensorData?.pumpData?.[0]?.status ? 
+                    {(device.status === 'On' || device.status === 'active') && sensorData?.pumpData?.[0]?.status ?
                       sensorData.pumpData[0].status : 'Inactive'}
                   </span>
                 </div>
               </div>
-              
+
               <div className="bg-white rounded-lg shadow-md p-6">
                 <div className="flex justify-between items-center">
                   <h4 className="font-bold">Pump Speed</h4>
                   <span className="text-3xl font-bold text-green-600">
-                    {(device.status === 'On' || device.status === 'active') && sensorData?.pumpData?.[0]?.pumpSpeed !== undefined ? 
+                    {(device.status === 'On' || device.status === 'active') && sensorData?.pumpData?.[0]?.pumpSpeed !== undefined ?
                       `${sensorData.pumpData[0].pumpSpeed}%` : '0%'}
                   </span>
                 </div>
@@ -245,7 +254,7 @@ const DeviceDetail = () => {
       {sensorData && device?.deviceType === 'temperature_humidity' && (
         <div className="mt-6">
           <h3 className="text-xl font-bold mb-4">Sensor Data</h3>
-          
+
           {/* Temperature & Humidity Data */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h4 className="font-bold mb-3">Temperature & Humidity</h4>
@@ -297,7 +306,7 @@ const DeviceDetail = () => {
       {sensorData && device.deviceType === 'soil_moisture' && (
         <div className="mt-6">
           <h3 className="text-xl font-bold mb-4">Sensor Data</h3>
-          
+
           <div className="bg-white rounded-lg shadow-md p-6">
             <h4 className="font-bold mb-3">Soil Moisture</h4>
             <div className="overflow-x-auto">
@@ -342,7 +351,7 @@ const DeviceDetail = () => {
       {sensorData && device.deviceType === 'pump_water' && (
         <div className="mt-6">
           <h3 className="text-xl font-bold mb-4">Pump Data</h3>
-          
+
           <div className="bg-white rounded-lg shadow-md p-6">
             <h4 className="font-bold mb-3">Pump Operation History</h4>
             <div className="overflow-x-auto">

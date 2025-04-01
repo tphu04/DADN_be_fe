@@ -60,17 +60,17 @@ async function startServer() {
         // Đợi MQTT kết nối thành công trước
         console.log('Đang đợi kết nối MQTT...');
         await mqttService.waitForConnection(20000); // Đợi tối đa 20 giây
-        
+
         // Sau khi MQTT đã kết nối, khởi tạo thiết bị
         console.log('Bắt đầu khởi tạo thiết bị');
         await iotDeviceService.initializeDevices();
-        
+
         // Đăng ký nhận dữ liệu từ tất cả feeds
         await mqttService.subscribeToAllFeeds();
-        
+
         // Tạo HTTP server từ Express app
         const server = http.createServer(app);
-        
+
         // Tạo Socket.IO server
         io = new Server(server, {
             cors: {
@@ -78,19 +78,19 @@ async function startServer() {
                 methods: ['GET', 'POST']
             }
         });
-        
+
         // Xử lý kết nối Socket.IO
         // io.on('connection', (socket) => {
         //     console.log('Client kết nối: ' + socket.id);
-            
+
         //     socket.on('disconnect', () => {
         //         console.log('Client ngắt kết nối: ' + socket.id);
         //     });
         // });
-        
+
         // Sửa MQTT service để phát sóng dữ liệu mới qua Socket.IO
         mqttService.setSocketIO(io);
-        
+
         // Khởi động HTTP server
         server.listen(PORT, () => {
             console.log(`Server đang chạy trên cổng ${PORT}`);
