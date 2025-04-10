@@ -43,6 +43,22 @@ const DeviceDetail = () => {
             setSensorData({
               pumpData: deviceData.historicalData || []
             });
+          } else if (deviceData.device.deviceType === 'light') {
+            try {
+              const lightResponse = await DeviceServices.getLightData(deviceId);
+              console.log('DeviceDetail: Light data response:', lightResponse);
+
+              const lightData = lightResponse.data || lightResponse;
+              console.log('DeviceDetail: Processed light data:', lightData);
+              setSensorData({
+                lightData: lightData
+              });
+            } catch (err) {
+              console.error('DeviceDetail: Error fetching light data:', err);
+              setSensorData({
+                lightData: []
+              });
+            }
           }
         } else {
           // Direct data structure (fallback if API doesn't return the expected format)
@@ -95,6 +111,22 @@ const DeviceDetail = () => {
                 pumpData: []
               });
             }
+          } else if (deviceData.deviceType === 'light') {
+            try {
+              const lightResponse = await DeviceServices.getLightData(deviceId);
+              console.log('DeviceDetail: Light data response:', lightResponse);
+
+              const lightData = lightResponse.data || lightResponse;
+              console.log('DeviceDetail: Processed light data:', lightData);
+              setSensorData({
+                lightData: lightData
+              });
+            } catch (err) {
+              console.error('DeviceDetail: Error fetching light data:', err);
+              setSensorData({
+                lightData: []
+              });
+            }
           }
         }
 
@@ -117,6 +149,8 @@ const DeviceDetail = () => {
         return 'Soil Moisture Sensor';
       case 'pump_water':
         return 'Water Pump';
+      case 'light':
+        return 'Light';
       default:
         return deviceType;
     }
@@ -247,8 +281,88 @@ const DeviceDetail = () => {
               </div>
             </div>
           )}
+
+          {device.deviceType === 'light' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-bold">Light Status</h4>
+                  <span className="text-3xl font-bold text-blue-600">
+                    {(device.status === 'On' || device.status === 'active') && sensorData?.lightData?.[0]?.status ?
+                      sensorData.lightData[0].status : 'Inactive'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-bold">Light Intensity</h4>
+                  <span className="text-3xl font-bold text-yellow-500">
+                    {(device.status === 'On' || device.status === 'active') && sensorData?.lightData?.[0]?.brightness !== undefined ?
+                      `${sensorData.lightData[0].brightness}%` : '0%'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Light Data Section */}
+      {sensorData && device.deviceType === 'light' && (
+        <div className="mt-6">
+          <h3 className="text-xl font-bold mb-4">Light Data</h3>
+          {console.log('DeviceDetail: Rendering light section, sensorData:', sensorData)}
+          {console.log('DeviceDetail: Light data in sensorData:', sensorData.lightData)}
+          {console.log('DeviceDetail: Light data length:', sensorData.lightData?.length)}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h4 className="font-bold mb-3">Light Operation History</h4>
+            <div className="overflow-x-auto">
+              <table className="min-w-full bg-white">
+                <thead>
+                  <tr>
+                    <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Date & Time
+                    </th>
+                    <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Brightness
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sensorData.lightData && sensorData.lightData.length > 0 ? (
+                    sensorData.lightData.slice(0, 5).map((data, index) => {
+                      console.log('DeviceDetail: Rendering light data row:', data);
+                      return (
+                        <tr key={index}>
+                          <td className="py-2 px-4 border-b border-gray-200">
+                            {data.readingTime ? new Date(data.readingTime).toLocaleString() : 'N/A'}
+                          </td>
+                          <td className="py-2 px-4 border-b border-gray-200">
+                            {data.status || 'N/A'}
+                          </td>
+                          <td className="py-2 px-4 border-b border-gray-200">
+                            {data.brightness !== undefined ? `${data.brightness}%` : 'N/A'}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="3" className="py-4 px-4 text-center text-gray-500">
+                        No light operation history available. Device may be inactive or data hasn't been received yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Temperature & Humidity Data Section */}
       {sensorData && device?.deviceType === 'temperature_humidity' && (

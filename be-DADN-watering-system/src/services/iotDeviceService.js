@@ -1,5 +1,6 @@
 const prisma = require('../../config/database');
 const mqttService = require('./mqtt.service');
+const { DeviceFactoryCreator } = require('../factory/DevicePatternFactory');
 
 class IoTDeviceService {
     /**
@@ -80,7 +81,7 @@ class IoTDeviceService {
      */
     async getDeviceById(id) {
         try {
-            return await prisma.ioTDevice.findUnique({
+            const device = await prisma.ioTDevice.findUnique({
                 where: { id: parseInt(id) },
                 include: {
                     feeds: true,
@@ -95,9 +96,21 @@ class IoTDeviceService {
                     pumpWaterData: {
                         take: 100,
                         orderBy: { readingTime: 'desc' }
+                    },
+                    lightData: {
+                        take: 100,
+                        orderBy: { readingTime: 'desc' }
                     }
                 }
             });
+
+            // Log để kiểm tra
+            console.log('Device data:', device);
+            if (device.deviceType === 'light') {
+                console.log('Light data:', device.lightData);
+            }
+
+            return device;
         } catch (error) {
             console.error('Lỗi lấy thông tin thiết bị:', error);
             throw error;
@@ -105,39 +118,15 @@ class IoTDeviceService {
     }
 
     /**
-     * Tạo thiết bị mới
+     * Tạo thiết bị mới sử dụng Factory Pattern
      */
     async createDevice(deviceData) {
         try {
-            // Trích xuất thông tin feeds từ dữ liệu gửi lên
-            const { feeds, ...deviceInfo } = deviceData;
+            // Lấy factory tương ứng với loại thiết bị
+            const factory = DeviceFactoryCreator.getFactory(deviceData.deviceType);
             
-            // Mặc định status = Off khi mới tạo
-            if (!deviceInfo.status) {
-                deviceInfo.status = 'Off';
-            }
-            
-            // Tạo thiết bị với các feed (nếu có) sử dụng cú pháp đúng của Prisma
-            const device = await prisma.ioTDevice.create({
-                data: {
-                    ...deviceInfo,
-                    // Sử dụng cú pháp create cho quan hệ feeds
-                    feeds: feeds ? {
-                        create: feeds
-                    } : undefined
-                },
-                // Bao gồm thông tin feeds trong kết quả trả về
-                include: {
-                    feeds: true
-                }
-            });
-
-            // Kết nối thiết bị với MQTT nếu status = On
-            if (device.status === 'On') {
-                await mqttService.connectDevice(device);
-            }
-
-            return device;
+            // Sử dụng factory để tạo thiết bị
+            return await factory.createDevice(deviceData);
         } catch (error) {
             console.error('Lỗi tạo thiết bị:', error);
             throw error;
@@ -286,7 +275,7 @@ class IoTDeviceService {
     }
 
     /**
-     * Điều khiển thiết bị (gửi lệnh MQTT)
+     * Điều khiển thiết bị
      */
     async controlDevice(deviceId, command) {
         try {

@@ -303,6 +303,30 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* Light Device  */}
+        <div className="w-full h-[170px] bg-gradient-to-b from-[#FF6B6B] to-[#FF8E53] rounded relative">
+          <div className="p-[12px]">
+            <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
+              <div>
+                Light
+              </div>
+              <button className="w-[20px] h-[20px]">
+                <img src={Icon3Dots} alt="icon 3 dots" />
+              </button>
+            </div>
+            <div className="font-roboto text-[28px] font-bold text-white leading-[42px] my-[8px]">
+              {sensorData.loading ? "Loading..." : sensorData.light?.status || 'Off'}
+            </div>
+            <div className="text-white font-roboto text-[14px] font-normal leading-[20px]">
+              Status: {sensorData.light?.status || 'Off'}
+            </div>
+
+            <div className="absolute right-2 bottom-6">
+              <img src={IconChart} alt="icon chart" />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Device List section */}

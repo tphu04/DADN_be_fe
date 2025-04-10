@@ -1,4 +1,5 @@
 const prisma = require('../../config/database');
+const { DeviceFactoryCreator } = require('../factory/DevicePatternFactory');
 
 // Các hàm truy vấn Device sử dụng Prisma
 const Device = {
@@ -41,11 +42,18 @@ const Device = {
     });
   },
 
-  // Tạo thiết bị mới
+  // Tạo thiết bị mới sử dụng Factory Pattern
   create: async (deviceData) => {
-    return prisma.ioTDevice.create({
-      data: deviceData
-    });
+    try {
+      // Lấy factory tương ứng với loại thiết bị
+      const factory = DeviceFactoryCreator.getFactory(deviceData.deviceType);
+      
+      // Sử dụng factory để tạo thiết bị
+      return await factory.createDevice(deviceData);
+    } catch (error) {
+      console.error('Lỗi tạo thiết bị:', error);
+      throw error;
+    }
   },
 
   // Cập nhật thiết bị

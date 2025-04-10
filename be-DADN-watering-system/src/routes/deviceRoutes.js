@@ -26,4 +26,7 @@ router.get('/:id/soil-moisture', deviceController.getSoilMoistureData);
 // Lấy dữ liệu máy bơm
 router.get('/:id/pump-water', deviceController.getPumpWaterData);
 
+// Lấy dữ liệu đèn
+router.get('/:id/light', deviceController.getLightData);
+
 module.exports = router; 

@@ -47,11 +47,15 @@ const getSavedSensorData = () => {
               status: parsedData.pumpWater?.status || 'Inactive',
               speed: typeof parsedData.pumpWater?.speed === 'number' ? parsedData.pumpWater.speed : 0
             },
+            light: {
+              status: parsedData.light?.status || 'Off',
+              brightness: typeof parsedData.light?.brightness === 'number' ? parsedData.light.brightness : 0
+            },
             loading: false,
             error: null
           };
           
-          if (validData.soilMoisture >= 0 || validData.temperature >= 0 || validData.airHumidity >= 0 || validData.pumpWater.speed >= 0) {
+          if (validData.soilMoisture >= 0 || validData.temperature >= 0 || validData.airHumidity >= 0 || validData.pumpWater.speed >= 0 || validData.light.brightness >= 0) {
             console.log('SensorContext: Using saved sensor data:', validData);
             return validData;
           }
@@ -77,6 +81,9 @@ const getDefaultSensorData = () => ({
     status: 'Inactive',
     speed: 0
   },
+  light: {
+    status: 'Off'
+  },
   loading: true,
   error: null
 });
@@ -101,6 +108,9 @@ const getSavedPrevData = () => {
             airHumidity: typeof parsedData.airHumidity === 'number' ? parsedData.airHumidity : 0,
             pumpWater: {
               speed: typeof parsedData.pumpWater?.speed === 'number' ? parsedData.pumpWater.speed : 0
+            },
+            light: {
+              status: parsedData.light?.status || 'Off'
             }
           };
           return validData;
@@ -123,6 +133,9 @@ const getDefaultPrevData = () => ({
   airHumidity: 0,
   pumpWater: {
     speed: 0
+  },
+  light: {
+    status: 'Off'
   }
 });
 
@@ -168,7 +181,8 @@ export const SensorProvider = ({ children }) => {
       soilMoisture: sensorData.soilMoisture,
       temperature: sensorData.temperature,
       airHumidity: sensorData.airHumidity,
-      pumpWater: sensorData.pumpWater
+      pumpWater: sensorData.pumpWater,
+      light: sensorData.light
     };
 
     console.log(dataToSave);
@@ -200,6 +214,9 @@ export const SensorProvider = ({ children }) => {
       airHumidity: sensorData.airHumidity,
       pumpWater: {
         speed: sensorData.pumpWater?.speed || 0
+      },
+      light: {
+        status: sensorData.light?.status || 'Off'
       }
     });
 
@@ -208,8 +225,6 @@ export const SensorProvider = ({ children }) => {
       setSensorData(prev => {
         const updated = {
           ...prev,
-          // temperature: data.data.temperature || prev.temperature,
-          // airHumidity: data.data.humidity || prev.airHumidity,
           temperature: data.data.temperature !== undefined ? data.data.temperature : prev.temperature,
           airHumidity: data.data.humidity !== undefined ? data.data.humidity : prev.airHumidity,
           loading: false
@@ -221,7 +236,6 @@ export const SensorProvider = ({ children }) => {
       setSensorData(prev => {
         const updated = {
           ...prev,
-          // soilMoisture: data.data.soilMoisture || prev.soilMoisture,
           soilMoisture: data.data.soilMoisture !== undefined ? data.data.soilMoisture : prev.soilMoisture,
           loading: false
         };
@@ -234,10 +248,20 @@ export const SensorProvider = ({ children }) => {
           ...prev,
           pumpWater: {
             ...prev.pumpWater,
-            // status: data.data.status || prev.pumpWater?.status || 'Inactive',
-            // speed: data.data.pumpSpeed || prev.pumpWater?.speed || 0
             status: data.data.status !== undefined ? data.data.status : (prev.pumpWater?.status || 'Inactive'),
             speed: data.data.pumpSpeed !== undefined ? data.data.pumpSpeed : (prev.pumpWater?.speed || 0)
+          },
+          loading: false
+        };
+        return updated;
+      });
+    }
+    else if (data.type === 'light') {
+      setSensorData(prev => {
+        const updated = {
+          ...prev,
+          light: {
+            status: data.data.status !== undefined ? data.data.status : (prev.light?.status || 'Off')
           },
           loading: false
         };
@@ -291,7 +315,8 @@ export const SensorProvider = ({ children }) => {
       soilMoisture: sensorData.soilMoisture,
       temperature: sensorData.temperature,
       airHumidity: sensorData.airHumidity,
-      pumpWater: sensorData.pumpWater
+      pumpWater: sensorData.pumpWater,
+      light: sensorData.light
     };
     
     // Lưu vào localStorage
@@ -342,6 +367,9 @@ export const SensorProvider = ({ children }) => {
             airHumidity: sensorData.airHumidity || 0,
             pumpWater: {
               speed: sensorData.pumpWater?.speed || 0
+            },
+            light: {
+              status: sensorData.light?.status || 'Off'
             }
           });
           
@@ -353,6 +381,9 @@ export const SensorProvider = ({ children }) => {
             pumpWater: {
               status: sensorData.pumpWater?.status || 'Inactive',
               speed: sensorData.pumpWater?.speed || 0
+            },
+            light: {
+              status: sensorData.light?.status || 'Off'
             },
             loading: false,
             error: null
@@ -375,6 +406,10 @@ export const SensorProvider = ({ children }) => {
               }
               if ('pumpSpeed' in sensor) {
                 newSensorData.pumpWater.speed = sensor.pumpSpeed;
+              }
+            } else if (sensor.deviceType === 'light') {
+              if ('status' in sensor) {
+                newSensorData.light.status = sensor.status;
               }
             }
           }

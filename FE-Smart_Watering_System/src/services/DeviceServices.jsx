@@ -19,6 +19,12 @@ const samplePumpData = [
   { readingTime: new Date(Date.now() - 7200000).toISOString(), status: 'Active', pumpSpeed: 80 }
 ];
 
+const sampleLightData = [
+  { readingTime: new Date().toISOString(), status: 'On', brightness: 100 },
+  { readingTime: new Date(Date.now() - 3600000).toISOString(), status: 'Off', brightness: 0 },
+  { readingTime: new Date(Date.now() - 7200000).toISOString(), status: 'On', brightness: 100 }
+];
+
 const DeviceServices = {
   // Lấy tất cả thiết bị
   getAllDevices: async () => {
@@ -115,6 +121,27 @@ const DeviceServices = {
       // Return sample data instead of throwing error
       console.log('Using sample pump data due to API error');
       return samplePumpData;
+    }
+  },
+
+  // Lấy dữ liệu đèn
+  getLightData: async (deviceId) => {
+    try {
+      console.log('Fetching light data for device:', deviceId);
+      const response = await axios.get(`/devices/${deviceId}/light`);
+      console.log('Light data response:', response.data);
+      
+      // Check if API returned expected format with data property
+      if (response.data && response.data.data) {
+        return response.data.data;
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching light data:', error);
+      // Return sample data instead of throwing error
+      console.log('Using sample light data due to API error');
+      return sampleLightData;
     }
   }
 };

@@ -240,6 +240,62 @@ const deviceController = {
         }
     },
 
+    // Lấy dữ liệu đèn
+    async getLightData(req, res) {
+        try {
+            const { id } = req.params;
+            const { limit = 100 } = req.query;
+
+            // Kiểm tra id có tồn tại không
+            if (!id) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'Device ID is required' 
+                });
+            }
+
+            // Xác minh thiết bị tồn tại và thuộc về người dùng
+            const device = await Device.findById(id);
+            if (!device) {
+                return res.status(404).json({ success: false, message: 'Device not found' });
+            }
+
+            // Kiểm tra trạng thái hoạt động của thiết bị
+            const isDeviceActive = device.status === 'On' || device.status === 'active';
+
+            // Lấy dữ liệu theo loại thiết bị
+            let data = [];
+            
+            if (isDeviceActive && device.deviceType === 'light') {
+                data = await prisma.lightData.findMany({
+                    where: { deviceId: parseInt(id) },
+                    orderBy: { readingTime: 'desc' },
+                    take: parseInt(limit)
+                });
+            }
+            
+            // Nếu không có dữ liệu, trả về mảng rỗng
+            if (!data || data.length === 0) {
+                console.log('No light data found, returning empty array');
+                data = [];
+            }
+
+            return res.status(200).json({
+                success: true,
+                deviceStatus: device.status,
+                data: data
+            });
+        } catch (error) {
+            console.error('Error fetching light data:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to fetch light data',
+                error: error.message,
+                data: [] // Always include data property even in error response
+            });
+        }
+    },
+
     // Sửa phương thức lấy thiết bị theo ID
     async getDeviceById(req, res) {
         try {
@@ -270,6 +326,16 @@ const deviceController = {
                     where: { deviceId: device.id },
                     orderBy: { readingTime: 'desc' }
                 });
+            } else if (device.deviceType === 'pump_water') {
+                latestData = await prisma.pumpWaterData.findFirst({
+                    where: { deviceId: device.id },
+                    orderBy: { readingTime: 'desc' }
+                });
+            } else if (device.deviceType === 'light') {
+                latestData = await prisma.lightData.findFirst({
+                    where: { deviceId: device.id },
+                    orderBy: { readingTime: 'desc' }
+                });
             }
             
             // Lấy lịch sử dữ liệu (100 bản ghi gần nhất)
@@ -283,6 +349,18 @@ const deviceController = {
                 });
             } else if (device.deviceType === 'soil_moisture') {
                 historicalData = await prisma.soilMoistureData.findMany({
+                    where: { deviceId: device.id },
+                    orderBy: { readingTime: 'desc' },
+                    take: 100
+                });
+            } else if (device.deviceType === 'pump_water') {
+                historicalData = await prisma.pumpWaterData.findMany({
+                    where: { deviceId: device.id },
+                    orderBy: { readingTime: 'desc' },
+                    take: 100
+                });
+            } else if (device.deviceType === 'light') {
+                historicalData = await prisma.lightData.findMany({
                     where: { deviceId: device.id },
                     orderBy: { readingTime: 'desc' },
                     take: 100

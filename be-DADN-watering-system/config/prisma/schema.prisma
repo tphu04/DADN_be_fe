@@ -10,7 +10,7 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL")
+  url      = "mysql://root:123456@localhost/watering-system"
 }
 
 enum StatusType {
@@ -22,6 +22,7 @@ enum DeviceType {
   temperature_humidity
   soil_moisture
   pump_water
+  light
 }
 
 model Admin {
@@ -42,7 +43,6 @@ model User {
   email          String          @unique
   phone          String
   address        String
-  notifications  Notification[]  @relation("UserNotifications")
   configurations Configuration[] @relation("UserConfigurations")
 }
 
@@ -62,8 +62,9 @@ model IoTDevice {
   temperatureHumidityData TemperatureHumidityData[] @relation("DeviceTemperatureHumidity")
   soilMoistureData        SoilMoistureData[]       @relation("DeviceSoilMoisture")
   pumpWaterData           PumpWaterData[]          @relation("DevicePumpWater")
+  lightData               LightData[]              @relation("DeviceLight")
   configurations          Configuration[]          @relation("DeviceConfigurations")
-  logData                 LogData[]                @relation("DeviceLogs")
+  notifications           Notification[]           @relation("DeviceLogs")
 }
 
 model TemperatureHumidityData {
@@ -103,23 +104,16 @@ model Configuration {
 }
 
 model Notification {
-  id         Int       @id @default(autoincrement())
-  message    String
-  createdAt  DateTime  @default(now())
-  type       String
-  userId     Int
-  user       User      @relation("UserNotifications", fields: [userId], references: [id])
-  logData    LogData[] @relation("NotificationLogs")
-}
-
-model LogData {
-  id             Int          @id @default(autoincrement())
-  value          String
-  createdAt      DateTime     @default(now())
-  deviceId       Int
-  device         IoTDevice    @relation("DeviceLogs", fields: [deviceId], references: [id])
-  notificationId Int
-  notification   Notification @relation("NotificationLogs", fields: [notificationId], references: [id])
+  id         Int      @id @default(autoincrement())
+  message    String   // Nội dung chi tiết của thông báo
+  type       String   // Loại thông báo (ví dụ: "THRESHOLD", "CONNECTION", "PUMP", "UPDATE", "TEST")
+  source     String?  // Nguồn phát sinh thông báo (có thể là tên hoặc ID của thiết bị/cảm biến)
+  createdAt  DateTime @default(now())
+  value      String?  // Giá trị liên quan đến thông báo
+  timestamp  DateTime @default(now()) // Thời gian tạo thông báo
+  deviceId   Int
+  device     IoTDevice    @relation("DeviceLogs", fields: [deviceId], references: [id])
+  isRead     Boolean  @default(false) // Trạng thái đã đọc/chưa đọc
 }
 
 model Feed {
@@ -131,5 +125,14 @@ model Feed {
   lastValue   Float?
   deviceId    Int
   device      IoTDevice    @relation("DeviceFeeds", fields: [deviceId], references: [id])
+}
+
+model LightData {
+  id          Int       @id @default(autoincrement())
+  status      StatusType
+  intensity   Int       @default(0)
+  readingTime DateTime  @default(now())
+  deviceId    Int
+  device      IoTDevice @relation("DeviceLight", fields: [deviceId], references: [id])
 }
 

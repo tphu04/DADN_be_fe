@@ -32,7 +32,7 @@ CREATE TABLE `User` (
 CREATE TABLE `IoTDevice` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `deviceCode` VARCHAR(191) NOT NULL,
-    `deviceType` ENUM('temperature_humidity', 'soil_moisture', 'pump_water') NOT NULL,
+    `deviceType` ENUM('temperature_humidity', 'soil_moisture', 'pump_water', 'light') NOT NULL,
     `status` ENUM('On', 'Off') NOT NULL,
     `description` VARCHAR(191) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -93,20 +93,13 @@ CREATE TABLE `Configuration` (
 CREATE TABLE `Notification` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `message` VARCHAR(191) NOT NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `type` VARCHAR(191) NOT NULL,
-    `userId` INTEGER NOT NULL,
-
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `LogData` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `value` VARCHAR(191) NOT NULL,
+    `source` VARCHAR(191) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `value` VARCHAR(191) NULL,
+    `timestamp` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `deviceId` INTEGER NOT NULL,
-    `notificationId` INTEGER NOT NULL,
+    `isRead` BOOLEAN NOT NULL DEFAULT false,
 
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -125,13 +118,11 @@ CREATE TABLE `Feed` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `SensorData` (
+CREATE TABLE `LightData` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `value` DOUBLE NOT NULL,
-    `timestamp` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `isAbnormal` BOOLEAN NOT NULL DEFAULT false,
+    `status` ENUM('On', 'Off') NOT NULL,
+    `readingTime` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `deviceId` INTEGER NOT NULL,
-    `feedId` INTEGER NOT NULL,
 
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -152,19 +143,10 @@ ALTER TABLE `Configuration` ADD CONSTRAINT `Configuration_userId_fkey` FOREIGN K
 ALTER TABLE `Configuration` ADD CONSTRAINT `Configuration_deviceId_fkey` FOREIGN KEY (`deviceId`) REFERENCES `IoTDevice`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `Notification` ADD CONSTRAINT `Notification_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `LogData` ADD CONSTRAINT `LogData_deviceId_fkey` FOREIGN KEY (`deviceId`) REFERENCES `IoTDevice`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `LogData` ADD CONSTRAINT `LogData_notificationId_fkey` FOREIGN KEY (`notificationId`) REFERENCES `Notification`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `Notification` ADD CONSTRAINT `Notification_deviceId_fkey` FOREIGN KEY (`deviceId`) REFERENCES `IoTDevice`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `Feed` ADD CONSTRAINT `Feed_deviceId_fkey` FOREIGN KEY (`deviceId`) REFERENCES `IoTDevice`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `SensorData` ADD CONSTRAINT `sensordata_device_fk` FOREIGN KEY (`deviceId`) REFERENCES `IoTDevice`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `SensorData` ADD CONSTRAINT `SensorData_feedId_fkey` FOREIGN KEY (`feedId`) REFERENCES `Feed`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `LightData` ADD CONSTRAINT `LightData_deviceId_fkey` FOREIGN KEY (`deviceId`) REFERENCES `IoTDevice`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
