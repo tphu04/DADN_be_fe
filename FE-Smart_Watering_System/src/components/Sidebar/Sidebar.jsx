@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, Link } from "react-router-dom";
 import Logo from "../../assets/images/logo.jpeg";
 import { IoSettingsOutline } from "react-icons/io5";
 import { GoHome } from "react-icons/go";
@@ -28,13 +28,15 @@ const Sidebar = () => {
       <nav className="px-[20px] py-[30px] w-[290px] bg-white flex flex-col justify-between shadow-xl">
         <div>
           {/* Logo  */}
-          <div className="flex flex-col items-center justify-center">
-            <img src={Logo} alt="logo" className="w-[50px] object-cover" />
-            <div className="flex font-quicksand font-bold text-[32px]">
-              <p className="text-[#2AF598]">Green</p>
-              <p className="text-[#08AEEA]">Tech</p>
+          <Link to="/">
+            <div className="flex flex-col items-center justify-center">
+              <img src={Logo} alt="logo" className="w-[50px] object-cover" />
+              <div className="flex font-quicksand font-bold text-[32px]">
+                <p className="text-[#2AF598]">Green</p>
+                <p className="text-[#08AEEA]">Tech</p>
+              </div>
             </div>
-          </div>
+          </Link>
 
           {/* Nav  */}
           <div className="font-roboto text-[16px] font-semibold flex flex-col items-start justify-center gap-y-[20px] mt-[30px]">
@@ -77,6 +79,18 @@ const Sidebar = () => {
                 className="w-[23px] h-[23px] object-cover"
               />
               <div>Configure Server & Devices</div>
+            </NavLink>
+            {/* Admin  */}
+            <NavLink
+              to="/admin/device-list"
+              className={({ isActive }) => getNavLinkClass(isActive)}
+            >
+              <img
+                src={IconConfig}
+                alt="icon config"
+                className="w-[23px] h-[23px] object-cover"
+              />
+              <div>Device List</div>
             </NavLink>
           </div>
         </div>

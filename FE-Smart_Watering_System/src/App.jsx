@@ -23,6 +23,7 @@ import Dashboard from "./pages/Dashboard/Dashboard";
 import DeviceDetail from "./components/DeviceDetail/DeviceDetail";
 import DeviceSetting from "./pages/DeviceSetting/DeviceSetting";
 import ConfigDevice from "./pages/ConfigDevice/ConfigDevice";
+import DeviceList from "./pages/admin/DeviceList/DeviceList";
 
 // Admin
 
@@ -103,6 +104,17 @@ function App() {
         />
 
         {/* Admin routes */}
+        <Route
+          path="/admin/device-list"
+          element={
+            <ProtectedRoute>
+              <SidebarLayout>
+                <DeviceList />
+              </SidebarLayout>
+            </ProtectedRoute>
+          }
+        />
+
         {/* <Route
           path="/admin"
           element={
