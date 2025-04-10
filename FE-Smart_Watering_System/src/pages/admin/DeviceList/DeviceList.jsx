@@ -46,7 +46,7 @@ const DeviceForm = () => {
   };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto bg-white rounded shadow">
+    <div className="my-6 p-6 max-w-3xl mx-auto bg-white rounded-xl shadow-xl">
       <h2 className="text-2xl font-bold mb-4">Add Device</h2>
 
       <input
