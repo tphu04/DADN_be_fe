@@ -25,7 +25,7 @@ const Sidebar = () => {
 
   return (
     <>
-      <nav className="px-[20px] py-[30px] w-[290px] bg-white flex flex-col justify-between shadow-lg">
+      <nav className="px-[20px] py-[30px] w-[290px] bg-white flex flex-col justify-between shadow-xl">
         <div>
           {/* Logo  */}
           <div className="flex flex-col items-center justify-center">

@@ -2,7 +2,7 @@ import { IoLogOutOutline } from "react-icons/io5";
 import { useAuth } from "../../context/AuthContext";
 
 // Icon
-import { IoNotificationsOutline } from "react-icons/io5";
+import { IoNotifications } from "react-icons/io5";
 import IconSearch from "../../assets/images/icon-search.svg";
 import Avt from "../../assets/images/avt.jpeg";
 
@@ -11,8 +11,10 @@ const Header = () => {
 
   return (
     <>
-      <header className="flex flex-row items-center justify-between pt-[20px] px-[30px] bg-white h-[112px] shadow-lg">
-        <div className="font-poppins text-[32px] font-bold">Dashboard</div>
+      <header className="flex flex-row items-center justify-between pt-[20px] px-[30px] bg-green-600 h-[112px] shadow-lg">
+        <div className="font-poppins text-[32px] font-bold text-white">
+          Dashboard
+        </div>
         <div className="flex flex-row space-x-[40px] items-center">
           <div className="p-[4px] border rounded-[6px] flex w-[332px]">
             <input
@@ -28,7 +30,7 @@ const Header = () => {
               />
             </div>
           </div>
-          <IoNotificationsOutline size={25} />
+          <IoNotifications size={25} className="text-white" />
           <img
             src={Avt}
             alt="avt"
