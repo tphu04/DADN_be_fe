@@ -25,7 +25,7 @@ const Sidebar = () => {
 
   return (
     <>
-      <div className="px-[20px] py-[30px] w-[290px] bg-white flex flex-col justify-between">
+      <nav className="px-[20px] py-[30px] w-[290px] bg-white flex flex-col justify-between shadow-lg">
         <div>
           {/* Logo  */}
           <div className="flex flex-col items-center justify-center">
@@ -46,7 +46,7 @@ const Sidebar = () => {
               <div>Dashboard</div>
             </NavLink>
             <NavLink
-              to="/settings"
+              to="/device-setting"
               className={({ isActive }) => getNavLinkClass(isActive)}
             >
               <img
@@ -117,7 +117,7 @@ const Sidebar = () => {
             </button>
           </div>
         </div>
-      </div>
+      </nav>
     </>
   );
 };

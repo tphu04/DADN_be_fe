@@ -10,27 +10,8 @@ const Header = () => {
   const auth = useAuth();
 
   return (
-    // <header className="p-4 flex justify-between items-center">
-    //   <div>
-    //     <h1 className="text-xl font-secondary font-bold text-gray-800">
-    //       Công Thành
-    //     </h1>
-    //     <span className="text-sm text-gray-500 font-primary">Student</span>
-    //   </div>
-    //   <div className="flex items-center">
-    //     {/* <span className="text-gray-600 mr-4">User Name</span> */}
-    //     <button
-    //       onClick={() => auth.logOut()}
-    //       className="bg-red-600 hover:bg-red-700 px-4 py-2 text-white rounded flex items-center space-x-2 font-primary"
-    //     >
-    //       <IoLogOutOutline size={20} />
-    //       <span>Logout</span>
-    //     </button>
-    //   </div>
-    // </header>
-
     <>
-      <div className="flex flex-row items-center justify-between pt-[20px] px-[30px] bg-white h-[112px]">
+      <header className="flex flex-row items-center justify-between pt-[20px] px-[30px] bg-white h-[112px] shadow-lg">
         <div className="font-poppins text-[32px] font-bold">Dashboard</div>
         <div className="flex flex-row space-x-[40px] items-center">
           <div className="p-[4px] border rounded-[6px] flex w-[332px]">
@@ -54,7 +35,7 @@ const Header = () => {
             className="h-[53px] w-[53px] object-cover rounded-full"
           />
         </div>
-      </div>
+      </header>
     </>
   );
 };

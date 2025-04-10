@@ -30,6 +30,7 @@ const AuthProvider = ({ children }) => {
           }
         } catch (error) {
           console.error("Failed to get user profile:", error);
+          logout();
         }
       }
     };

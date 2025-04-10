@@ -21,6 +21,8 @@ import ResetPassword from "./pages/ResetPassword/ResetPassword";
 import HomePage from "./pages/HomePage/HomePage";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import DeviceDetail from "./components/DeviceDetail/DeviceDetail";
+import DeviceSetting from "./pages/DeviceSetting/DeviceSetting";
+import ConfigDevice from "./pages/ConfigDevice/ConfigDevice";
 
 // Admin
 
@@ -34,21 +36,21 @@ function App() {
       <ScrollToTop />
       <Routes>
         {/* Auth routes - Không thể truy cập nếu đã đăng nhập */}
-        <Route 
-          path="/sign-up" 
-          element={isLoggedIn() ? <Navigate to="/" /> : <SignUp />} 
+        <Route
+          path="/sign-up"
+          element={isLoggedIn() ? <Navigate to="/" /> : <SignUp />}
         />
-        <Route 
-          path="/login" 
-          element={isLoggedIn() ? <Navigate to="/" /> : <Login />} 
+        <Route
+          path="/login"
+          element={isLoggedIn() ? <Navigate to="/" /> : <Login />}
         />
-        <Route 
-          path="/forgot-password" 
-          element={isLoggedIn() ? <Navigate to="/" /> : <ForgotPassword />} 
+        <Route
+          path="/forgot-password"
+          element={isLoggedIn() ? <Navigate to="/" /> : <ForgotPassword />}
         />
-        <Route 
-          path="/reset-password" 
-          element={isLoggedIn() ? <Navigate to="/" /> : <ResetPassword />} 
+        <Route
+          path="/reset-password"
+          element={isLoggedIn() ? <Navigate to="/" /> : <ResetPassword />}
         />
 
         {/* Trang chủ công khai */}
@@ -65,7 +67,29 @@ function App() {
             </ProtectedRoute>
           }
         />
-        
+
+        <Route
+          path="/device-setting"
+          element={
+            <ProtectedRoute>
+              <SidebarLayout>
+                <DeviceSetting />
+              </SidebarLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/config"
+          element={
+            <ProtectedRoute>
+              <SidebarLayout>
+                <ConfigDevice />
+              </SidebarLayout>
+            </ProtectedRoute>
+          }
+        />
+
         {/* Trang chi tiết thiết bị */}
         <Route
           path="/dashboard/device/:deviceId"

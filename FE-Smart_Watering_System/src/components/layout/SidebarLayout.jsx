@@ -16,7 +16,7 @@ const Layout = ({ children }) => {
         <Header />
 
         {/* Dynamic Content */}
-        <div className="mt-[48px] mx-[44px]">{children}</div>
+        <main className="mt-[48px] mx-[44px]">{children}</main>
       </div>
     </div>
   );
