@@ -24,6 +24,9 @@ import DeviceDetail from "./components/DeviceDetail/DeviceDetail";
 import DeviceSetting from "./pages/DeviceSetting/DeviceSetting";
 import ConfigDevice from "./pages/ConfigDevice/ConfigDevice";
 import DeviceList from "./pages/admin/DeviceList/DeviceList";
+import UserList from "./pages/admin/UserList.jsx/UserList";
+import Notification from "./pages/Notification/Notification";
+import Report from "./pages/Report/Report";
 
 // Admin
 
@@ -91,6 +94,28 @@ function App() {
           }
         />
 
+        <Route
+          path="/notification"
+          element={
+            <ProtectedRoute>
+              <SidebarLayout>
+                <Notification />
+              </SidebarLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/report"
+          element={
+            <ProtectedRoute>
+              <SidebarLayout>
+                <Report />
+              </SidebarLayout>
+            </ProtectedRoute>
+          }
+        />
+
         {/* Trang chi tiết thiết bị */}
         <Route
           path="/dashboard/device/:deviceId"
@@ -110,6 +135,17 @@ function App() {
             <ProtectedRoute>
               <SidebarLayout>
                 <DeviceList />
+              </SidebarLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/user-list"
+          element={
+            <ProtectedRoute>
+              <SidebarLayout>
+                <UserList />
               </SidebarLayout>
             </ProtectedRoute>
           }
