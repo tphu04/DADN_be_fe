@@ -1,5 +1,6 @@
 import { IoLogOutOutline } from "react-icons/io5";
 import { useAuth } from "../../context/AuthContext";
+import { Link } from "react-router-dom";
 
 // Icon
 import { IoNotifications } from "react-icons/io5";
@@ -30,7 +31,12 @@ const Header = () => {
               />
             </div>
           </div>
-          <IoNotifications size={25} className="text-white" />
+          <Link to="/notification">
+            <IoNotifications
+              size={25}
+              className="text-white hover:opacity-60 cursor-pointer"
+            />
+          </Link>
           <img
             src={Avt}
             alt="avt"

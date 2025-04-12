@@ -12,6 +12,7 @@ import IconConfig from "../../assets/images/icon-config.png";
 import IconProfile from "../../assets/images/icon-profile.svg";
 import IconHelp from "../../assets/images/icon-help.svg";
 import { IoIosLogOut } from "react-icons/io";
+import { FaUsers } from "react-icons/fa";
 
 // Auth Context
 import { useAuth } from "../../context/AuthContext";
@@ -58,7 +59,7 @@ const Sidebar = () => {
               />
               <div>Device Setting</div>
             </NavLink>
-            <NavLink
+            {/* <NavLink
               to="/notification"
               className={({ isActive }) => getNavLinkClass(isActive)}
             >
@@ -68,7 +69,7 @@ const Sidebar = () => {
                 className="w-[14px] h-[18px] object-cover"
               />
               <div>Notification</div>
-            </NavLink>
+            </NavLink> */}
             <NavLink
               to="/config"
               className={({ isActive }) => getNavLinkClass(isActive)}
@@ -80,6 +81,19 @@ const Sidebar = () => {
               />
               <div>Configure Server & Devices</div>
             </NavLink>
+
+            <NavLink
+              to="/report"
+              className={({ isActive }) => getNavLinkClass(isActive)}
+            >
+              <img
+                src={IconConfig}
+                alt=""
+                className="w-[23px] h-[23px] object-cover"
+              />
+              <div>Report</div>
+            </NavLink>
+
             {/* Admin  */}
             <NavLink
               to="/admin/device-list"
@@ -87,10 +101,18 @@ const Sidebar = () => {
             >
               <img
                 src={IconConfig}
-                alt="icon config"
+                alt=""
                 className="w-[23px] h-[23px] object-cover"
               />
               <div>Device List</div>
+            </NavLink>
+
+            <NavLink
+              to="/admin/user-list"
+              className={({ isActive }) => getNavLinkClass(isActive)}
+            >
+              <FaUsers size={20} />
+              <div>User List</div>
             </NavLink>
           </div>
         </div>
