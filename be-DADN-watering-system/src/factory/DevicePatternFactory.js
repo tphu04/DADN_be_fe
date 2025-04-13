@@ -9,12 +9,20 @@ class DeviceFactory {
 
     // Common initialization logic
     async initializeDevice(device) {
-        // Kết nối thiết bị với MQTT nếu status = On
-        if (device.status === 'On') {
-            await mqttService.connectDevice(device);
-        }
+        try {
+            // Đăng ký feed của thiết bị mới vào MQTT
+            await mqttService.registerDeviceFeed(device);
+            
+            // Kết nối thiết bị với MQTT nếu status = On
+            if (device.status === 'On') {
+                await mqttService.connectDevice(device);
+            }
 
-        return device;
+            return device;
+        } catch (error) {
+            console.error(`Lỗi khởi tạo thiết bị ${device.deviceCode}:`, error);
+            return device;
+        }
     }
 }
 
@@ -22,8 +30,8 @@ class DeviceFactory {
 class TemperatureHumidityDeviceFactory extends DeviceFactory {
     async createDevice(deviceData) {
         try {
-            // Trích xuất thông tin feeds từ dữ liệu gửi lên
-            const { feeds, ...deviceInfo } = deviceData;
+            // Trích xuất thông tin feed từ dữ liệu gửi lên
+            const { feed, ...deviceInfo } = deviceData;
             
             // Mặc định status = Off khi mới tạo
             if (!deviceInfo.status) {
@@ -33,16 +41,39 @@ class TemperatureHumidityDeviceFactory extends DeviceFactory {
             // Đảm bảo deviceType là temperature_humidity
             deviceInfo.deviceType = 'temperature_humidity';
             
-            // Tạo thiết bị với các feed (nếu có)
-            const device = await prisma.ioTDevice.create({
+            // Validate userId - bắt buộc phải có
+            if (!deviceInfo.userId) {
+                throw new Error('userId là bắt buộc để tạo thiết bị');
+            }
+            
+            // Tạo thiết bị với feed (nếu có)
+            const device = await prisma.iotdevice.create({
                 data: {
-                    ...deviceInfo,
-                    feeds: feeds ? {
-                        create: feeds
-                    } : undefined
+                    deviceCode: deviceInfo.deviceCode,
+                    deviceType: deviceInfo.deviceType,
+                    status: deviceInfo.status,
+                    description: deviceInfo.description || '',
+                    isOnline: false,
+                    lastSeen: new Date(),
+                    feed: {
+                        create: feed.map(f => ({
+                            name: f.name,
+                            feedKey: f.feedKey,
+                            minValue: f.minValue || null,
+                            maxValue: f.maxValue || null
+                        }))
+                    },
+                    configuration: {
+                        create: {
+                            userId: deviceInfo.userId,
+                            createdAt: new Date(),
+                            updatedAt: new Date()
+                        }
+                    }
                 },
                 include: {
-                    feeds: true
+                    feed: true,
+                    configuration: true
                 }
             });
 
@@ -58,8 +89,8 @@ class TemperatureHumidityDeviceFactory extends DeviceFactory {
 class SoilMoistureDeviceFactory extends DeviceFactory {
     async createDevice(deviceData) {
         try {
-            // Trích xuất thông tin feeds từ dữ liệu gửi lên
-            const { feeds, ...deviceInfo } = deviceData;
+            // Trích xuất thông tin feed từ dữ liệu gửi lên
+            const { feed, ...deviceInfo } = deviceData;
             
             // Mặc định status = Off khi mới tạo
             if (!deviceInfo.status) {
@@ -69,16 +100,39 @@ class SoilMoistureDeviceFactory extends DeviceFactory {
             // Đảm bảo deviceType là soil_moisture
             deviceInfo.deviceType = 'soil_moisture';
             
-            // Tạo thiết bị với các feed (nếu có)
-            const device = await prisma.ioTDevice.create({
+            // Validate userId - bắt buộc phải có
+            if (!deviceInfo.userId) {
+                throw new Error('userId là bắt buộc để tạo thiết bị');
+            }
+            
+            // Tạo thiết bị với feed (nếu có)
+            const device = await prisma.iotdevice.create({
                 data: {
-                    ...deviceInfo,
-                    feeds: feeds ? {
-                        create: feeds
-                    } : undefined
+                    deviceCode: deviceInfo.deviceCode,
+                    deviceType: deviceInfo.deviceType,
+                    status: deviceInfo.status,
+                    description: deviceInfo.description || '',
+                    isOnline: false,
+                    lastSeen: new Date(),
+                    feed: {
+                        create: feed.map(f => ({
+                            name: f.name,
+                            feedKey: f.feedKey,
+                            minValue: f.minValue || null,
+                            maxValue: f.maxValue || null
+                        }))
+                    },
+                    configuration: {
+                        create: {
+                            userId: deviceInfo.userId,
+                            createdAt: new Date(),
+                            updatedAt: new Date()
+                        }
+                    }
                 },
                 include: {
-                    feeds: true
+                    feed: true,
+                    configuration: true
                 }
             });
 
@@ -94,8 +148,8 @@ class SoilMoistureDeviceFactory extends DeviceFactory {
 class PumpWaterDeviceFactory extends DeviceFactory {
     async createDevice(deviceData) {
         try {
-            // Trích xuất thông tin feeds từ dữ liệu gửi lên
-            const { feeds, ...deviceInfo } = deviceData;
+            // Trích xuất thông tin feed từ dữ liệu gửi lên
+            const { feed, ...deviceInfo } = deviceData;
             
             // Mặc định status = Off khi mới tạo
             if (!deviceInfo.status) {
@@ -105,16 +159,39 @@ class PumpWaterDeviceFactory extends DeviceFactory {
             // Đảm bảo deviceType là pump_water
             deviceInfo.deviceType = 'pump_water';
             
-            // Tạo thiết bị với các feed (nếu có)
-            const device = await prisma.ioTDevice.create({
+            // Validate userId - bắt buộc phải có
+            if (!deviceInfo.userId) {
+                throw new Error('userId là bắt buộc để tạo thiết bị');
+            }
+            
+            // Tạo thiết bị với feed (nếu có)
+            const device = await prisma.iotdevice.create({
                 data: {
-                    ...deviceInfo,
-                    feeds: feeds ? {
-                        create: feeds
-                    } : undefined
+                    deviceCode: deviceInfo.deviceCode,
+                    deviceType: deviceInfo.deviceType,
+                    status: deviceInfo.status,
+                    description: deviceInfo.description || '',
+                    isOnline: false,
+                    lastSeen: new Date(),
+                    feed: {
+                        create: feed.map(f => ({
+                            name: f.name,
+                            feedKey: f.feedKey,
+                            minValue: f.minValue || null,
+                            maxValue: f.maxValue || null
+                        }))
+                    },
+                    configuration: {
+                        create: {
+                            userId: deviceInfo.userId,
+                            createdAt: new Date(),
+                            updatedAt: new Date()
+                        }
+                    }
                 },
                 include: {
-                    feeds: true
+                    feed: true,
+                    configuration: true
                 }
             });
 
@@ -130,8 +207,8 @@ class PumpWaterDeviceFactory extends DeviceFactory {
 class LightDeviceFactory extends DeviceFactory {
     async createDevice(deviceData) {
         try {
-            // Trích xuất thông tin feeds từ dữ liệu gửi lên
-            const { feeds, ...deviceInfo } = deviceData;
+            // Trích xuất thông tin feed từ dữ liệu gửi lên
+            const { feed, ...deviceInfo } = deviceData;
             
             // Mặc định status = Off khi mới tạo
             if (!deviceInfo.status) {
@@ -141,16 +218,39 @@ class LightDeviceFactory extends DeviceFactory {
             // Đảm bảo deviceType là light
             deviceInfo.deviceType = 'light';
             
-            // Tạo thiết bị với các feed (nếu có)
-            const device = await prisma.ioTDevice.create({
+            // Validate userId - bắt buộc phải có
+            if (!deviceInfo.userId) {
+                throw new Error('userId là bắt buộc để tạo thiết bị');
+            }
+            
+            // Tạo thiết bị với feed (nếu có)
+            const device = await prisma.iotdevice.create({
                 data: {
-                    ...deviceInfo,
-                    feeds: feeds ? {
-                        create: feeds
-                    } : undefined
+                    deviceCode: deviceInfo.deviceCode,
+                    deviceType: deviceInfo.deviceType,
+                    status: deviceInfo.status,
+                    description: deviceInfo.description || '',
+                    isOnline: false,
+                    lastSeen: new Date(),
+                    feed: {
+                        create: feed.map(f => ({
+                            name: f.name,
+                            feedKey: f.feedKey,
+                            minValue: f.minValue || null,
+                            maxValue: f.maxValue || null
+                        }))
+                    },
+                    configuration: {
+                        create: {
+                            userId: deviceInfo.userId,
+                            createdAt: new Date(),
+                            updatedAt: new Date()
+                        }
+                    }
                 },
                 include: {
-                    feeds: true
+                    feed: true,
+                    configuration: true
                 }
             });
 
@@ -249,13 +349,7 @@ async function createDeviceByType(deviceType, deviceData) {
 }
 
 module.exports = {
-    DeviceFactory,
-    TemperatureHumidityDeviceFactory,
-    SoilMoistureDeviceFactory,
-    PumpWaterDeviceFactory,
-    LightDeviceFactory,
     DeviceFactoryCreator,
-    // Export các hàm tiện ích mới
     createTemperatureHumidityDevice,
     createSoilMoistureDevice,
     createPumpWaterDevice,

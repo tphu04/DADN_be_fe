@@ -3,6 +3,7 @@ import SensorServices from "../../services/SensorServices";
 import DeviceServices from "../../services/DeviceServices";
 import DeviceList from "../../components/DeviceList/DeviceList";
 import { useSensorData } from "../../context/SensorContext";
+import socketService from '../../services/socketService';
 
 // Icon
 import IconIncrease from "../../assets/images/icon-increase.svg";
@@ -35,23 +36,41 @@ const Dashboard = () => {
   const [isLoadingDevices, setIsLoadingDevices] = useState(true);
   const [showDebug, setShowDebug] = useState(true);
 
+  // Đăng ký lắng nghe sự kiện cập nhật từ socket
+  useEffect(() => {
+    const handleSensorUpdate = (data) => {
+      console.log('Dashboard received sensor update:', data);
+      // Xử lý cập nhật dữ liệu...
+    };
+
+    // Đăng ký lắng nghe cả hai event (sensor-update và sensor_update)
+    socketService.on('sensor-update', handleSensorUpdate);
+    socketService.on('sensor_update', handleSensorUpdate);
+
+    // Ensure socket is connected
+    socketService.getSocket();
+
+    return () => {
+      // Hủy đăng ký khi component unmount
+      socketService.off('sensor-update', handleSensorUpdate);
+      socketService.off('sensor_update', handleSensorUpdate);
+    };
+  }, []);
+
   // Lấy dữ liệu từ API khi component mount
   useEffect(() => {
     console.log('Dashboard: Component mounted');
     
-    // Fetch dữ liệu mới từ API (nếu cần)
+    // Fetch dữ liệu mới từ API mỗi khi component mount
     const fetchInitialData = async () => {
-      console.log('Dashboard: Checking if API fetch is needed...');
-      
-      // Cập nhật từ API nếu cần (quyết định được xử lý trong updateFromAPI)
-      if (sensorData.loading) {
-        console.log('Dashboard: Fetching fresh data from API');
+      try {
+        console.log('Dashboard: Fetching fresh sensor data from API on mount');
+        // Luôn cập nhật dữ liệu mới từ API khi vào Dashboard
         await updateFromAPI(SensorServices);
-        // console.log(`hiện data hiện tại ${res}`)
-      } else {
-        console.log('Dashboard: Using existing sensor data:', sensorData);
-        
-        // Ensure we save existing data to localStorage
+      } catch (error) {
+        console.error('Dashboard: Error fetching sensor data:', error);
+        // Nếu có lỗi, vẫn sử dụng dữ liệu đã lưu
+        console.log('Dashboard: Using existing sensor data due to error');
         forceSaveData();
       }
     };
@@ -60,8 +79,11 @@ const Dashboard = () => {
     const fetchDevices = async () => {
       try {
         setIsLoadingDevices(true);
-        const result = await DeviceServices.getAllDevices();
+        // Lấy thiết bị của người dùng hiện tại
+        const result = await DeviceServices.getUserDevices();
+        console.log('Dashboard: User devices:', result);
         setDevices(result);
+        
         setIsLoadingDevices(false);
       } catch (error) {
         console.error("Dashboard: Error fetching devices:", error);
@@ -73,12 +95,20 @@ const Dashboard = () => {
     fetchInitialData();
     fetchDevices();
     
+    // Thiết lập interval để cập nhật dữ liệu định kỳ nếu không có socket
+    const intervalId = !socketConnected ? 
+      setInterval(() => {
+        console.log('Dashboard: Updating sensor data periodically');
+        updateFromAPI(SensorServices);
+      }, 30000) : null; // Cập nhật mỗi 30 giây nếu không có socket
+    
     // Force save data khi component unmount
     return () => {
       console.log('Dashboard: Component unmounting, saving data...');
+      if (intervalId) clearInterval(intervalId);
       forceSaveData();
     };
-  }, []);
+  }, [socketConnected]);
 
   // Lưu dữ liệu vào localStorage khi có thay đổi
   useEffect(() => {
@@ -172,7 +202,7 @@ const Dashboard = () => {
         </div>
       )} */}
       
-      {/* Sensor Data cards */}
+      {/* Sensor Data cards - hiển thị cho tất cả người dùng đã đăng nhập */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Soil Moisture  */}
         <div className={`w-full h-[170px] bg-gradient-to-b from-[#0093E9] to-[#80D0C7] rounded relative ${soilMoistureThresholdClass}`}>

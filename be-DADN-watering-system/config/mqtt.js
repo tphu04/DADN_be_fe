@@ -1,5 +1,6 @@
 require('dotenv').config();
 const mqtt = require('mqtt');
+const prisma = require('./database');
 
 // MQTT Configuration
 const mqttConfig = {
@@ -18,19 +19,37 @@ const client = mqtt.connect(`${mqttConfig.protocol}://${mqttConfig.host}`, {
 });
 
 // MQTT connection event handlers
-client.on('connect', () => {
+client.on('connect', async () => {
     console.log('Connected to MQTT broker');
-    // Subscribe to topics after successful connection
-    const topics = process.env.MQTT_TOPICS ? process.env.MQTT_TOPICS.split(',') : [];
-    topics.forEach(topic => {
-        client.subscribe(topic, (err) => {
-            if (!err) {
-                console.log(`Subscribed to ${topic}`);
-            } else {
-                console.error(`Error subscribing to ${topic}:`, err);
+    
+    try {
+        // Tải danh sách feed từ database để đăng ký topic
+        const feeds = await prisma.feed.findMany({
+            select: {
+                feedKey: true
             }
         });
-    });
+        
+        if (feeds && feeds.length > 0) {
+            console.log(`Đã tìm thấy ${feeds.length} feed trong database`);
+            
+            // Đăng ký topic cho mỗi feed
+            for (const feed of feeds) {
+                const topic = `${mqttConfig.username}/feeds/${feed.feedKey}`;
+                client.subscribe(topic, (err) => {
+                    if (!err) {
+                        console.log(`Subscribed to ${topic}`);
+                    } else {
+                        console.error(`Error subscribing to ${topic}:`, err);
+                    }
+                });
+            }
+        } else {
+            console.log('Không tìm thấy feed nào trong database');
+        }
+    } catch (error) {
+        console.error('Lỗi khi tải danh sách feed từ database:', error);
+    }
 });
 
 client.on('error', (error) => {

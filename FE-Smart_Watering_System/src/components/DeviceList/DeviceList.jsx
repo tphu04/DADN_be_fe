@@ -12,8 +12,21 @@ const DeviceList = () => {
     const fetchDevices = async () => {
       try {
         setLoading(true);
-        const result = await DeviceServices.getAllDevices();
-        setDevices(result);
+        const result = await DeviceServices.getUserDevices();
+        
+        // Kiểm tra cấu trúc dữ liệu
+        console.log('DeviceList received user devices:', result);
+        
+        if (Array.isArray(result)) {
+          setDevices(result);
+        } else if (result && result.data && Array.isArray(result.data)) {
+          setDevices(result.data);
+        } else {
+          console.error('Unexpected data format from API:', result);
+          setDevices([]);
+          setError('Invalid data format received from server');
+        }
+        
         setLoading(false);
       } catch (error) {
         console.error('Error fetching devices:', error);
@@ -79,7 +92,20 @@ const DeviceList = () => {
   }
 
   if (!devices || devices.length === 0) {
-    return <div className="p-4">No devices found</div>;
+    return (
+      <div className="p-6 text-center">
+        <div className="bg-blue-50 p-6 rounded-lg shadow-sm">
+          <h3 className="text-xl font-semibold mb-2">Bạn chưa có thiết bị nào</h3>
+          <p className="text-gray-600 mb-4">Hãy thêm thiết bị mới trong mục Quản lý thiết bị để bắt đầu</p>
+          <button 
+            onClick={() => navigate('/device-setting')}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md transition-colors"
+          >
+            Thêm thiết bị mới
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

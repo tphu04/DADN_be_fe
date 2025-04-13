@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,126 +7,160 @@ datasource db {
   url      = "mysql://root:123456@localhost/watering-system"
 }
 
-enum StatusType {
+model admin {
+  id        Int    @id @default(autoincrement())
+  fullname  String
+  phone     String
+  email     String @unique(map: "Admin_email_key")
+  adminCode String
+  username  String @unique(map: "Admin_username_key")
+  password  String
+}
+
+model configuration {
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  deviceId        Int
+  createdAt       DateTime  @default(now())
+  humidityMax     Float     @default(100)
+  humidityMin     Float     @default(0)
+  lightOn         Boolean   @default(false)
+  pumpWaterOn     Boolean   @default(false)
+  pumpWaterSpeed  Int       @default(0)
+  soilMoistureMax Float     @default(100)
+  soilMoistureMin Float     @default(0)
+  temperatureMax  Float     @default(100)
+  temperatureMin  Float     @default(0)
+  updatedAt       DateTime
+  iotdevice       iotdevice @relation(fields: [deviceId], references: [id], map: "Configuration_deviceId_fkey")
+  user            user      @relation(fields: [userId], references: [id], map: "Configuration_userId_fkey")
+
+  @@index([deviceId], map: "Configuration_deviceId_fkey")
+  @@index([userId], map: "Configuration_userId_fkey")
+}
+
+model feed {
+  id        Int       @id @default(autoincrement())
+  name      String
+  feedKey   String
+  minValue  Float?
+  maxValue  Float?
+  lastValue Float?
+  deviceId  Int
+  iotdevice iotdevice @relation(fields: [deviceId], references: [id], map: "Feed_deviceId_fkey")
+
+  @@index([deviceId], map: "Feed_deviceId_fkey")
+}
+
+model iotdevice {
+  id                      Int                       @id @default(autoincrement())
+  deviceCode              String                    
+  deviceType              iotdevice_deviceType
+  status                  iotdevice_status
+  description             String?
+  createdAt               DateTime                  @default(now())
+  isOnline                Boolean                   @default(false)
+  lastSeen                DateTime?
+  lastSeenAt              DateTime?
+  configuration           configuration[]
+  feed                    feed[]
+  lightdata               lightdata[]
+  notification            notification[]
+  pumpwaterdata           pumpwaterdata[]
+  soilmoisturedata        soilmoisturedata[]
+  temperaturehumiditydata temperaturehumiditydata[]
+
+}
+
+model lightdata {
+  id          Int              @id @default(autoincrement())
+  status      lightdata_status
+  readingTime DateTime         @default(now())
+  deviceId    Int
+  intensity   Int              @default(0)
+  lightUserId Int?
+  iotdevice   iotdevice        @relation(fields: [deviceId], references: [id], map: "LightData_deviceId_fkey")
+
+  @@index([deviceId], map: "LightData_deviceId_fkey")
+}
+
+model notification {
+  id        Int       @id @default(autoincrement())
+  message   String
+  type      String
+  source    String?
+  createdAt DateTime  @default(now())
+  value     String?
+  timestamp DateTime  @default(now())
+  deviceId  Int
+  iotdevice iotdevice @relation(fields: [deviceId], references: [id], map: "Notification_deviceId_fkey")
+
+  @@index([deviceId], map: "Notification_deviceId_fkey")
+}
+
+model pumpwaterdata {
+  id          Int       @id @default(autoincrement())
+  status      String
+  pumpSpeed   Int
+  readingTime DateTime  @default(now())
+  deviceId    Int
+  pumpUserId  Int?
+  iotdevice   iotdevice @relation(fields: [deviceId], references: [id], map: "PumpWaterData_deviceId_fkey")
+
+  @@index([deviceId], map: "PumpWaterData_deviceId_fkey")
+
+}
+
+model soilmoisturedata {
+  id            Int       @id @default(autoincrement())
+  moistureValue Float
+  readingTime   DateTime  @default(now())
+  deviceId      Int
+  iotdevice     iotdevice @relation(fields: [deviceId], references: [id], map: "SoilMoistureData_deviceId_fkey")
+
+  @@index([deviceId], map: "SoilMoistureData_deviceId_fkey")
+}
+
+model temperaturehumiditydata {
+  id              Int       @id @default(autoincrement())
+  temperature     Float
+  humidity        Float
+  readingTime     DateTime  @default(now())
+  deviceId        Int
+  iotdevice       iotdevice @relation(fields: [deviceId], references: [id], map: "TemperatureHumidityData_deviceId_fkey")
+
+  @@index([deviceId], map: "TemperatureHumidityData_deviceId_fkey")
+}
+
+model user {
+  id                      Int                       @id @default(autoincrement())
+  fullname                String
+  username                String                    @unique(map: "User_username_key")
+  password                String
+  email                   String                    @unique(map: "User_email_key")
+  phone                   String
+  address                 String
+  createdAt               DateTime                  @default(now())
+  role                    String?                   @default("USER") @db.VarChar(10)
+  isAccepted              Boolean?                  @default(false)
+  configuration           configuration[]
+
+
+}
+
+enum lightdata_status {
   On
   Off
 }
 
-enum DeviceType {
+enum iotdevice_deviceType {
   temperature_humidity
   soil_moisture
   pump_water
   light
 }
 
-model Admin {
-  id        Int      @id @default(autoincrement())
-  fullname  String
-  phone     String
-  email     String   @unique
-  adminCode String
-  username  String   @unique
-  password  String
+enum iotdevice_status {
+  On
+  Off
 }
-
-model User {
-  id             Int             @id @default(autoincrement())
-  fullname       String
-  username       String          @unique
-  password       String
-  email          String          @unique
-  phone          String
-  address        String
-  configurations Configuration[] @relation("UserConfigurations")
-}
-
-model IoTDevice {
-  id                      Int                      @id @default(autoincrement())
-  deviceCode              String                   @unique
-  deviceType              DeviceType
-  status                  StatusType
-  description             String?
-  createdAt               DateTime                 @default(now())
-  mqttUsername            String?
-  mqttApiKey              String?
-  isOnline                Boolean                  @default(false)
-  lastSeen                DateTime?
-  lastSeenAt              DateTime?
-  feeds                   Feed[]                   @relation("DeviceFeeds")
-  temperatureHumidityData TemperatureHumidityData[] @relation("DeviceTemperatureHumidity")
-  soilMoistureData        SoilMoistureData[]       @relation("DeviceSoilMoisture")
-  pumpWaterData           PumpWaterData[]          @relation("DevicePumpWater")
-  lightData               LightData[]              @relation("DeviceLight")
-  configurations          Configuration[]          @relation("DeviceConfigurations")
-  notifications           Notification[]           @relation("DeviceLogs")
-}
-
-model TemperatureHumidityData {
-  id           Int       @id @default(autoincrement())
-  temperature  Float
-  humidity     Float
-  readingTime  DateTime  @default(now())
-  deviceId     Int
-  device       IoTDevice @relation("DeviceTemperatureHumidity", fields: [deviceId], references: [id])
-}
-
-model SoilMoistureData {
-  id            Int       @id @default(autoincrement())
-  moistureValue Float
-  readingTime   DateTime  @default(now())
-  deviceId      Int
-  device        IoTDevice @relation("DeviceSoilMoisture", fields: [deviceId], references: [id])
-}
-
-model PumpWaterData {
-  id          Int       @id @default(autoincrement())
-  status      String
-  pumpSpeed   Int
-  readingTime DateTime  @default(now())
-  deviceId    Int
-  device      IoTDevice @relation("DevicePumpWater", fields: [deviceId], references: [id])
-}
-
-model Configuration {
-  id         Int         @id @default(autoincrement())
-  value      String
-  updateAt   DateTime    @default(now())
-  userId     Int
-  user       User        @relation("UserConfigurations", fields: [userId], references: [id])
-  deviceId   Int
-  device     IoTDevice   @relation("DeviceConfigurations", fields: [deviceId], references: [id])
-}
-
-model Notification {
-  id         Int      @id @default(autoincrement())
-  message    String   // Nội dung chi tiết của thông báo
-  type       String   // Loại thông báo (ví dụ: "THRESHOLD", "CONNECTION", "PUMP", "UPDATE", "TEST")
-  source     String?  // Nguồn phát sinh thông báo (có thể là tên hoặc ID của thiết bị/cảm biến)
-  createdAt  DateTime @default(now())
-  value      String?  // Giá trị liên quan đến thông báo
-  timestamp  DateTime @default(now()) // Thời gian tạo thông báo
-  deviceId   Int
-  device     IoTDevice    @relation("DeviceLogs", fields: [deviceId], references: [id])
-  isRead     Boolean  @default(false) // Trạng thái đã đọc/chưa đọc
-}
-
-model Feed {
-  id          Int          @id @default(autoincrement())
-  name        String
-  feedKey     String
-  minValue    Float?
-  maxValue    Float?
-  lastValue   Float?
-  deviceId    Int
-  device      IoTDevice    @relation("DeviceFeeds", fields: [deviceId], references: [id])
-}
-
-model LightData {
-  id          Int       @id @default(autoincrement())
-  status      StatusType
-  intensity   Int       @default(0)
-  readingTime DateTime  @default(now())
-  deviceId    Int
-  device      IoTDevice @relation("DeviceLight", fields: [deviceId], references: [id])
-}
-

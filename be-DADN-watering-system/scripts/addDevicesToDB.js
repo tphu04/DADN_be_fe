@@ -93,15 +93,9 @@ async function addDevicesToDatabase() {
             feeds: [
                 {
                     name: "Trạng thái đèn",
-                    feedKey: "light_status",
+                    feedKey: "button-light",
                     minValue: 0,
                     maxValue: 1
-                },
-                {
-                    name: "Độ sáng",
-                    feedKey: "light_brightness",
-                    minValue: 0,
-                    maxValue: 100
                 }
             ]
         });

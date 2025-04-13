@@ -4,6 +4,7 @@ const userRoutes = require('./userRoutes');
 const sensorRoutes = require('./sensorRoutes');
 const deviceRoutes = require('./deviceRoutes');
 const notificationRoutes = require('./notificationRoutes');
+const adminRoutes = require('./adminRoutes');
 
 const routes = express.Router();
 
@@ -20,5 +21,6 @@ routes.use('/users', userRoutes);
 routes.use('/sensors', sensorRoutes);
 routes.use('/devices', deviceRoutes);
 routes.use('/notifications', notificationRoutes);
+routes.use('/admin', adminRoutes);
 
 module.exports = routes;

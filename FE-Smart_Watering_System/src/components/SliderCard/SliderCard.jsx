@@ -93,15 +93,15 @@ const SliderCard = ({
         <>
           {!hideInput && (
             <div className="text-sm text-gray-700 mb-2 flex items-center gap-2">
-              Value:
-              {/* <InputNumber
+              Value:{" "}
+              <InputNumber
                 min={0}
                 max={maxLimit}
                 value={value}
                 onChange={onChange}
                 className="w-[60px]"
               />
-              {unit} */}
+              {unit}
             </div>
           )}
           <Slider

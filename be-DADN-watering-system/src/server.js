@@ -6,6 +6,7 @@ const iotDeviceService = require('./services/iotDeviceService');
 const mqttService = require('./services/mqtt.service');
 const http = require('http');
 const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 
@@ -76,17 +77,49 @@ async function startServer() {
             cors: {
                 origin: '*', // Đặt origin phù hợp với frontend của bạn
                 methods: ['GET', 'POST']
-            }
+            },
+            pingTimeout: 60000, // 60 giây timeout
+            pingInterval: 25000, // Kiểm tra kết nối mỗi 25 giây
+            transports: ['websocket', 'polling'], // Ưu tiên websocket
+            allowEIO3: true, // Cho phép Engine.IO phiên bản 3
+            maxHttpBufferSize: 1e8 // Tăng kích thước buffer cho socket
         });
 
         // Xử lý kết nối Socket.IO
-        // io.on('connection', (socket) => {
-        //     console.log('Client kết nối: ' + socket.id);
+        io.on('connection', (socket) => {
+            console.log('Client kết nối: ' + socket.id);
+            
+            // Cho phép tất cả kết nối mà không cần xác thực
+            console.log(`Anonymous connection accepted: ${socket.id}`);
+            socket.emit('connected', { status: 'success', anonymous: true });
+            
+            // Xử lý sự kiện join-user-room (dùng khi client muốn join room một cách rõ ràng)
+            socket.on('join-user-room', (data) => {
+                if (data && data.userId) {
+                    const userRoom = `user-${data.userId}`;
+                    socket.join(userRoom);
+                    console.log(`Socket ${socket.id} manually joined room: ${userRoom}`);
+                    // Gửi xác nhận cho client
+                    socket.emit('room_joined', { room: userRoom });
+                } else {
+                    console.warn(`Socket ${socket.id} attempted to join a room without userId`);
+                }
+            });
 
-        //     socket.on('disconnect', () => {
-        //         console.log('Client ngắt kết nối: ' + socket.id);
-        //     });
-        // });
+            // Thêm heartbeat để kiểm tra kết nối
+            socket.on('ping', () => {
+                socket.emit('pong');
+            });
+
+            socket.on('disconnect', (reason) => {
+                console.log(`Client ngắt kết nối: ${socket.id}, Reason: ${reason}`);
+            });
+
+            // Xử lý sự kiện lỗi
+            socket.on('error', (error) => {
+                console.error(`Socket error for ${socket.id}:`, error);
+            });
+        });
 
         // Sửa MQTT service để phát sóng dữ liệu mới qua Socket.IO
         mqttService.setSocketIO(io);

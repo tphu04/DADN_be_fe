@@ -99,7 +99,9 @@ export async function getUserProfile() {
  * @returns {boolean} - true nếu đã đăng nhập, false nếu chưa
  */
 export function isAuthenticated() {
-  return localStorage.getItem('token') !== null;
+  const token = localStorage.getItem('token');
+  const user = getUser();
+  return token !== null && user !== null;
 }
 
 /**
@@ -111,8 +113,16 @@ export function getUser() {
   if (!userStr) return null;
   
   try {
-    return JSON.parse(userStr);
+    const user = JSON.parse(userStr);
+    // Ensure admin users have the correct flags set
+    if (user.isAdmin || user.role === 'ADMIN' || user.userType === 'admin') {
+      user.isAdmin = true;
+      user.role = 'ADMIN';
+      user.userType = 'admin';
+    }
+    return user;
   } catch (error) {
+    console.error('Error parsing user data:', error);
     return null;
   }
 }

@@ -1,21 +1,31 @@
 const express = require('express');
 const router = express.Router();
 const deviceController = require('../controllers/deviceController');
+const { verifyToken } = require('../middleware/authMiddleware');
 
-// Lấy tất cả thiết bị
-router.get('/', deviceController.getAllDevices);
+// Áp dụng middleware xác thực cho tất cả các routes
+router.use(verifyToken);
 
-// Lấy một thiết bị cụ thể
-router.get('/:id', deviceController.getDevice);
+// Lấy danh sách thiết bị của người dùng hiện tại
+router.get('/', deviceController.getUserDevices);
 
 // Tạo thiết bị mới
 router.post('/', deviceController.createDevice);
 
-// Cập nhật thiết bị
+// Lấy thông tin chi tiết thiết bị
+router.get('/:id', deviceController.getDeviceById);
+
+// Cập nhật thông tin thiết bị
 router.put('/:id', deviceController.updateDevice);
 
 // Xóa thiết bị
 router.delete('/:id', deviceController.deleteDevice);
+
+// Điều khiển thiết bị
+router.post('/:id/control', deviceController.controlDevice);
+
+// Lấy dữ liệu lịch sử của thiết bị
+router.get('/:id/data', deviceController.getDeviceData);
 
 // Lấy dữ liệu nhiệt độ và độ ẩm
 router.get('/:id/temperature-humidity', deviceController.getTemperatureHumidityData);

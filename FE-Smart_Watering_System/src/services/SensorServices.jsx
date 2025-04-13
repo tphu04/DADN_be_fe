@@ -1,10 +1,12 @@
 import axios from './CustomizeAxios';
 
 const SensorServices = {
-  // Lấy dữ liệu mới nhất từ tất cả các cảm biến
+  // Lấy dữ liệu mới nhất từ tất cả các cảm biến của user hiện tại
   getLatestSensorData: async () => {
     try {
+      console.log('SensorServices: Fetching latest sensor data for current user');
       const response = await axios.get('/sensors/latest');
+      console.log('SensorServices: Response from API:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error fetching latest sensor data:', error);

@@ -127,18 +127,27 @@ const logIn = async (req, res) => {
         // Generate token
         console.log('Tạo token đăng nhập');
         const token = generateToken(user);
-        console.log('Đăng nhập thành công, user ID:', user.id);
+        console.log('Đăng nhập thành công, user ID:', user.id, 'User Type:', user.isAdmin ? 'Admin' : 'User');
+
+        // Create user info object with more details
+        const userInfo = {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            fullname: user.fullname,
+            role: user.role || 'USER',
+            isAdmin: user.isAdmin || false,
+            userType: user.isAdmin ? 'admin' : 'user',
+            isAccepted: user.isAccepted || false,
+            mqttUsername: user.mqttUsername,
+            mqttApiKey: user.mqttApiKey
+        };
 
         res.status(200).json({
             success: true,
             message: 'Login successful.',
             data: {
-                user: {
-                    id: user.id,
-                    username: user.username,
-                    email: user.email,
-                    fullname: user.fullname
-                },
+                user: userInfo,
                 token
             }
         });

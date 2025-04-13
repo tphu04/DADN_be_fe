@@ -65,9 +65,9 @@ class IoTDeviceService {
      */
     async getAllDevices() {
         try {
-            return await prisma.ioTDevice.findMany({
+            return await prisma.iotdevice.findMany({
                 include: {
-                    feeds: true
+                    feed: true
                 }
             });
         } catch (error) {
@@ -77,38 +77,56 @@ class IoTDeviceService {
     }
 
     /**
+     * Lấy thiết bị theo userId
+     */
+    async getDevicesByUserId(userId) {
+        try {
+            return await prisma.iotdevice.findMany({
+                where: { userId: parseInt(userId) },
+                include: {
+                    feed: true
+                }
+            });
+        } catch (error) {
+            console.error('Lỗi lấy danh sách thiết bị của người dùng:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Lấy thông tin chi tiết thiết bị
      */
-    async getDeviceById(id) {
+    async getDeviceById(id, userId = null) {
         try {
-            const device = await prisma.ioTDevice.findUnique({
-                where: { id: parseInt(id) },
+            const whereClause = { id: parseInt(id) };
+            
+            // Nếu có userId, chỉ lấy thiết bị thuộc về user đó
+            if (userId) {
+                whereClause.userId = parseInt(userId);
+            }
+            
+            const device = await prisma.iotdevice.findFirst({
+                where: whereClause,
                 include: {
-                    feeds: true,
-                    temperatureHumidityData: {
+                    feed: true,
+                    temperaturehumiditydata: {
                         take: 100,
                         orderBy: { readingTime: 'desc' }
                     },
-                    soilMoistureData: {
+                    soilmoisturedata: {
                         take: 100,
                         orderBy: { readingTime: 'desc' }
                     },
-                    pumpWaterData: {
+                    pumpwaterdata: {
                         take: 100,
                         orderBy: { readingTime: 'desc' }
                     },
-                    lightData: {
+                    lightdata: {
                         take: 100,
                         orderBy: { readingTime: 'desc' }
                     }
                 }
             });
-
-            // Log để kiểm tra
-            console.log('Device data:', device);
-            if (device.deviceType === 'light') {
-                console.log('Light data:', device.lightData);
-            }
 
             return device;
         } catch (error) {
@@ -122,6 +140,11 @@ class IoTDeviceService {
      */
     async createDevice(deviceData) {
         try {
+            // Đảm bảo có userId
+            if (!deviceData.userId) {
+                throw new Error('userId là bắt buộc để tạo thiết bị');
+            }
+            
             // Lấy factory tương ứng với loại thiết bị
             const factory = DeviceFactoryCreator.getFactory(deviceData.deviceType);
             
@@ -136,24 +159,78 @@ class IoTDeviceService {
     /**
      * Cập nhật thiết bị
      */
-    async updateDevice(id, deviceData) {
+    async updateDevice(id, deviceData, userId = null) {
         try {
             // Lấy thông tin thiết bị hiện tại
-            const currentDevice = await prisma.ioTDevice.findUnique({
-                where: { id: parseInt(id) },
-                include: { feeds: true }
+            const whereClause = { id: parseInt(id) };
+            
+            // Nếu có userId, chỉ cập nhật thiết bị thuộc về user đó
+            if (userId) {
+                whereClause.userId = parseInt(userId);
+            }
+            
+            const currentDevice = await prisma.iotdevice.findFirst({
+                where: whereClause,
+                include: { feed: true }
             });
             
             if (!currentDevice) {
                 throw new Error(`Không tìm thấy thiết bị với ID ${id}`);
             }
             
+            // Tách feeds từ deviceData nếu có
+            const { feeds, ...deviceDataWithoutFeeds } = deviceData;
+            
             // Cập nhật thiết bị
-            const device = await prisma.ioTDevice.update({
+            const device = await prisma.iotdevice.update({
                 where: { id: parseInt(id) },
-                data: deviceData,
-                include: { feeds: true }
+                data: deviceDataWithoutFeeds,
+                include: { feed: true }
             });
+            
+            // Cập nhật feeds nếu có
+            if (feeds && feeds.length > 0) {
+                // Tạo mảng các promise cập nhật feed
+                const feedUpdatePromises = feeds.map(async (feed) => {
+                    if (!feed.id) return null; // Bỏ qua nếu không có id
+                    
+                    // Tìm feed hiện tại
+                    const existingFeed = currentDevice.feed.find(f => f.id === parseInt(feed.id));
+                    if (!existingFeed) {
+                        console.warn(`Feed với id ${feed.id} không tồn tại trong thiết bị ${id}`);
+                        return null;
+                    }
+                    
+                    // Cập nhật feed
+                    return prisma.feed.update({
+                        where: { id: parseInt(feed.id) },
+                        data: {
+                            name: feed.name !== undefined ? feed.name : existingFeed.name,
+                            feedKey: feed.feedKey !== undefined ? feed.feedKey : existingFeed.feedKey,
+                            minValue: feed.minValue !== undefined ? feed.minValue : existingFeed.minValue,
+                            maxValue: feed.maxValue !== undefined ? feed.maxValue : existingFeed.maxValue
+                        }
+                    });
+                });
+                
+                // Thực thi tất cả các update promise
+                await Promise.all(feedUpdatePromises.filter(p => p !== null));
+                
+                // Nếu đã cập nhật feed, cần đăng ký lại MQTT cho thiết bị
+                if (device.status === 'On') {
+                    // Ngắt kết nối hiện tại
+                    await mqttService.disconnectDevice(parseInt(id));
+                    
+                    // Lấy thông tin thiết bị với feeds mới
+                    const refreshedDevice = await prisma.iotdevice.findUnique({
+                        where: { id: parseInt(id) },
+                        include: { feed: true }
+                    });
+                    
+                    // Kết nối lại MQTT với feeds mới
+                    await mqttService.connectDevice(refreshedDevice);
+                }
+            }
 
             // Kiểm tra nếu status thay đổi
             if (deviceData.status !== undefined && currentDevice.status !== deviceData.status) {
@@ -165,8 +242,12 @@ class IoTDeviceService {
                     await mqttService.disconnectDevice(parseInt(id));
                 }
             }
-
-            return device;
+            
+            // Trả về thông tin thiết bị mới nhất
+            return await prisma.iotdevice.findUnique({
+                where: { id: parseInt(id) },
+                include: { feed: true }
+            });
         } catch (error) {
             console.error('Lỗi cập nhật thiết bị:', error);
             throw error;
@@ -176,12 +257,28 @@ class IoTDeviceService {
     /**
      * Xóa thiết bị
      */
-    async deleteDevice(id) {
+    async deleteDevice(id, userId = null) {
         try {
-            // Ngắt kết nối MQTT trước
+            const whereClause = { id: parseInt(id) };
+            
+            // Nếu có userId, chỉ xóa thiết bị thuộc về user đó
+            if (userId) {
+                whereClause.userId = parseInt(userId);
+            }
+            
+            // Kiểm tra thiết bị có tồn tại không
+            const device = await prisma.iotdevice.findFirst({
+                where: whereClause
+            });
+            
+            if (!device) {
+                throw new Error(`Không tìm thấy thiết bị với ID ${id}`);
+            }
+            
+            // Ngắt kết nối MQTT trước khi xóa
             await mqttService.disconnectDevice(parseInt(id));
-
-            // Xóa các bản ghi liên quan để tránh vi phạm ràng buộc khóa ngoại
+            
+            // Xóa các dữ liệu liên quan
             await prisma.$transaction([
                 // 1. Xóa các feeds liên quan
                 prisma.feed.deleteMany({
@@ -189,32 +286,42 @@ class IoTDeviceService {
                 }),
                 
                 // 2. Xóa dữ liệu nhiệt độ và độ ẩm
-                prisma.temperatureHumidityData.deleteMany({
+                prisma.temperaturehumiditydata.deleteMany({
                     where: { deviceId: parseInt(id) }
                 }),
                 
                 // 3. Xóa dữ liệu độ ẩm đất
-                prisma.soilMoistureData.deleteMany({
+                prisma.soilmoisturedata.deleteMany({
                     where: { deviceId: parseInt(id) }
                 }),
                 
                 // 4. Xóa dữ liệu máy bơm
-                prisma.pumpWaterData.deleteMany({
+                prisma.pumpwaterdata.deleteMany({
                     where: { deviceId: parseInt(id) }
                 }),
                 
-                // 5. Xóa Log data
-                prisma.logData.deleteMany({
+                // 5. Xóa dữ liệu đèn
+                prisma.lightdata.deleteMany({
                     where: { deviceId: parseInt(id) }
                 }),
                 
-                // 6. Xóa Configurations
+                // 6. Xóa thông báo
+                prisma.notification.deleteMany({
+                    where: { deviceId: parseInt(id) }
+                }),
+                
+                // 7. Xóa cấu hình
                 prisma.configuration.deleteMany({
                     where: { deviceId: parseInt(id) }
                 }),
                 
-                // 7. Cuối cùng xóa thiết bị
-                prisma.ioTDevice.delete({
+                // 8. Xóa lịch sử cấu hình
+                prisma.deviceConfigHistory.deleteMany({
+                    where: { deviceId: parseInt(id) }
+                }),
+                
+                // 9. Cuối cùng xóa thiết bị
+                prisma.iotdevice.delete({
                     where: { id: parseInt(id) }
                 })
             ]);
@@ -229,9 +336,23 @@ class IoTDeviceService {
     /**
      * Lấy dữ liệu nhiệt độ và độ ẩm
      */
-    async getTemperatureHumidityData(deviceId, limit = 100) {
+    async getTemperatureHumidityData(deviceId, limit = 100, userId = null) {
         try {
-            return await prisma.temperatureHumidityData.findMany({
+            // Nếu có userId, kiểm tra thiết bị có thuộc về user đó không
+            if (userId) {
+                const device = await prisma.iotdevice.findFirst({
+                    where: {
+                        id: parseInt(deviceId),
+                        userId: parseInt(userId)
+                    }
+                });
+                
+                if (!device) {
+                    throw new Error(`Không tìm thấy thiết bị với ID ${deviceId}`);
+                }
+            }
+            
+            return await prisma.temperaturehumiditydata.findMany({
                 where: { deviceId: parseInt(deviceId) },
                 orderBy: { readingTime: 'desc' },
                 take: parseInt(limit)
@@ -245,9 +366,23 @@ class IoTDeviceService {
     /**
      * Lấy dữ liệu độ ẩm đất
      */
-    async getSoilMoistureData(deviceId, limit = 100) {
+    async getSoilMoistureData(deviceId, limit = 100, userId = null) {
         try {
-            return await prisma.soilMoistureData.findMany({
+            // Nếu có userId, kiểm tra thiết bị có thuộc về user đó không
+            if (userId) {
+                const device = await prisma.iotdevice.findFirst({
+                    where: {
+                        id: parseInt(deviceId),
+                        userId: parseInt(userId)
+                    }
+                });
+                
+                if (!device) {
+                    throw new Error(`Không tìm thấy thiết bị với ID ${deviceId}`);
+                }
+            }
+            
+            return await prisma.soilmoisturedata.findMany({
                 where: { deviceId: parseInt(deviceId) },
                 orderBy: { readingTime: 'desc' },
                 take: parseInt(limit)
@@ -259,53 +394,64 @@ class IoTDeviceService {
     }
 
     /**
-     * Lấy dữ liệu máy bơm
+     * Lấy dữ liệu máy bơm nước
      */
-    async getPumpWaterData(deviceId, limit = 100) {
+    async getPumpWaterData(deviceId, limit = 100, userId = null) {
         try {
-            return await prisma.pumpWaterData.findMany({
+            // Nếu có userId, kiểm tra thiết bị có thuộc về user đó không
+            if (userId) {
+                const device = await prisma.iotdevice.findFirst({
+                    where: {
+                        id: parseInt(deviceId),
+                        userId: parseInt(userId)
+                    }
+                });
+                
+                if (!device) {
+                    throw new Error(`Không tìm thấy thiết bị với ID ${deviceId}`);
+                }
+            }
+            
+            return await prisma.pumpwaterdata.findMany({
                 where: { deviceId: parseInt(deviceId) },
                 orderBy: { readingTime: 'desc' },
                 take: parseInt(limit)
             });
         } catch (error) {
-            console.error('Lỗi lấy dữ liệu máy bơm:', error);
+            console.error('Lỗi lấy dữ liệu máy bơm nước:', error);
             throw error;
         }
     }
-
+    
     /**
-     * Điều khiển thiết bị
+     * Lấy dữ liệu đèn
      */
-    async controlDevice(deviceId, command) {
+    async getLightData(deviceId, limit = 100, userId = null) {
         try {
-            const device = await prisma.ioTDevice.findUnique({
-                where: { id: parseInt(deviceId) },
-                include: { feeds: true }
+            // Nếu có userId, kiểm tra thiết bị có thuộc về user đó không
+            if (userId) {
+                const device = await prisma.iotdevice.findFirst({
+                    where: {
+                        id: parseInt(deviceId),
+                        userId: parseInt(userId)
+                    }
+                });
+                
+                if (!device) {
+                    throw new Error(`Không tìm thấy thiết bị với ID ${deviceId}`);
+                }
+            }
+            
+            return await prisma.lightdata.findMany({
+                where: { deviceId: parseInt(deviceId) },
+                orderBy: { readingTime: 'desc' },
+                take: parseInt(limit)
             });
-            
-            if (!device) {
-                throw new Error(`Không tìm thấy thiết bị với ID ${deviceId}`);
-            }
-            
-            if (device.status === 'Off') {
-                throw new Error(`Thiết bị ${device.deviceCode} đang tắt, không thể điều khiển`);
-            }
-            
-            // Xử lý lệnh tùy theo loại thiết bị
-            if (device.deviceType === 'pump_water' && command.action) {
-                const value = command.action === 'on' ? (command.speed || 100) : 0;
-                return await mqttService.publishMessage(parseInt(deviceId), 'pump-control', value);
-            }
-            
-            throw new Error(`Lệnh không hợp lệ hoặc không hỗ trợ cho loại thiết bị ${device.deviceType}`);
         } catch (error) {
-            console.error('Lỗi điều khiển thiết bị:', error);
+            console.error('Lỗi lấy dữ liệu đèn:', error);
             throw error;
         }
     }
 }
 
-// Tạo và xuất instance duy nhất
-const iotDeviceService = new IoTDeviceService();
-module.exports = iotDeviceService; 
+module.exports = new IoTDeviceService(); 

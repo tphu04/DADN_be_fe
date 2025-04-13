@@ -1,23 +1,28 @@
 const express = require('express');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, authorizeAdmin } = require('../middleware/auth');
+const { 
+  getAllUsers, 
+  updateUserAccess, 
+  getCurrentUser, 
+  getAllSystemUsers,
+  createUser,
+  updateUser,
+  deleteUser
+} = require('../controllers/userController');
 
 const router = express.Router();
 
 // Protected routes - Cần xác thực token
-router.get('/profile', authenticateToken, (req, res) => {
-    // Trả về thông tin người dùng từ token đã xác thực
-    const user = {
-        id: req.user.id,
-        username: req.user.username,
-        email: req.user.email,
-        role: req.user.role
-    };
-    
-    res.status(200).json({
-        success: true,
-        message: 'User profile retrieved successfully',
-        data: user
-    });
-});
+router.get('/profile', authenticateToken, getCurrentUser);
+
+// Admin routes - Cần quyền admin
+router.get('/', authenticateToken, authorizeAdmin, getAllUsers);
+router.get('/all', authenticateToken, authorizeAdmin, getAllSystemUsers);
+router.put('/:userId/access', authenticateToken, authorizeAdmin, updateUserAccess);
+
+// Thêm các route cho chức năng CRUD mới của user management
+router.post('/', authenticateToken, authorizeAdmin, createUser);
+router.put('/:userId', authenticateToken, authorizeAdmin, updateUser);
+router.delete('/:userId', authenticateToken, authorizeAdmin, deleteUser);
 
 module.exports = router;

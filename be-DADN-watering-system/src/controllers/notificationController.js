@@ -22,7 +22,7 @@ exports.getNotifications = async (req, res) => {
             skip: offset,
             orderBy: { timestamp: 'desc' },
             include: {
-                device: {
+                iotdevice: {
                     select: {
                         id: true,
                         deviceCode: true,
@@ -235,7 +235,7 @@ exports.getNotificationsByType = async (req, res) => {
             take: limit,
             orderBy: { timestamp: 'desc' },
             include: {
-                device: {
+                iotdevice: {
                     select: {
                         id: true,
                         deviceCode: true,

@@ -22,11 +22,6 @@ const isLocalStorageAvailable = () => {
 
 // Lấy dữ liệu cảm biến đã lưu từ localStorage
 const getSavedSensorData = () => {
-  // if (!isLocalStorageAvailable()) {
-  //   console.warn('localStorage is not available, using default sensor data');
-  //   return getDefaultSensorData();
-  // }
-
   try {
     const savedData = localStorage.getItem(SENSOR_DATA_KEY);
     console.log('SensorContext: Trying to load saved data:', savedData);
@@ -38,7 +33,7 @@ const getSavedSensorData = () => {
         
         // Kiểm tra tính hợp lệ của dữ liệu
         if (parsedData && typeof parsedData === 'object') {
-          // Đảm bảo dữ liệu có cấu trúc hợp lệ
+          // Đảm bảo dữ liệu có cấu trúc hợp lệ và ưu tiên dữ liệu đã lưu
           const validData = {
             soilMoisture: typeof parsedData.soilMoisture === 'number' ? parsedData.soilMoisture : 0,
             temperature: typeof parsedData.temperature === 'number' ? parsedData.temperature : 0,
@@ -55,10 +50,8 @@ const getSavedSensorData = () => {
             error: null
           };
           
-          if (validData.soilMoisture >= 0 || validData.temperature >= 0 || validData.airHumidity >= 0 || validData.pumpWater.speed >= 0 || validData.light.brightness >= 0) {
-            console.log('SensorContext: Using saved sensor data:', validData);
-            return validData;
-          }
+          console.log('SensorContext: Using saved sensor data:', validData);
+          return validData;
         }
       } catch (parseError) {
         console.error('SensorContext: Error parsing saved sensor data:', parseError);
@@ -174,7 +167,7 @@ export const SensorProvider = ({ children }) => {
 
   // Lưu dữ liệu cảm biến vào localStorage khi có thay đổi
   useEffect(() => {
-    if (!storageAvailable || sensorData.loading || sensorData.error) return;
+    if (sensorData.loading || sensorData.error) return;
 
     // Chuẩn bị dữ liệu để lưu
     const dataToSave = {
@@ -185,11 +178,11 @@ export const SensorProvider = ({ children }) => {
       light: sensorData.light
     };
 
-    console.log(dataToSave);
+    console.log('SensorContext: Auto saving data on change:', dataToSave);
     
     // Lưu vào localStorage
     saveToLocalStorage(SENSOR_DATA_KEY, dataToSave);
-  }, [sensorData, storageAvailable]);
+  }, [sensorData]);
 
   // Lưu dữ liệu trước đó vào localStorage
   // useEffect(() => {
@@ -242,7 +235,8 @@ export const SensorProvider = ({ children }) => {
         return updated;
       });
     }
-    else if (data.type === 'pump_water') {
+    else if (data.type === 'pump_water' || data.type === 'pump_status' || data.type === 'pump-water' || data.type === 'pump-status') {
+      console.log('SensorContext: Processing pump data:', data);
       setSensorData(prev => {
         const updated = {
           ...prev,
@@ -253,6 +247,7 @@ export const SensorProvider = ({ children }) => {
           },
           loading: false
         };
+        console.log('SensorContext: Updated pump data:', updated.pumpWater);
         return updated;
       });
     }
@@ -279,6 +274,7 @@ export const SensorProvider = ({ children }) => {
     
     // Đăng ký lắng nghe sự kiện cập nhật từ server
     socketService.on('sensor-update', handleSensorUpdate);
+    socketService.on('sensor_update', handleSensorUpdate);
     
     // Kiểm tra trạng thái kết nối định kỳ
     const checkSocketConnection = setInterval(() => {
@@ -294,9 +290,45 @@ export const SensorProvider = ({ children }) => {
     return () => {
       clearInterval(checkSocketConnection);
       socketService.off('sensor-update', handleSensorUpdate);
+      socketService.off('sensor_update', handleSensorUpdate);
       // KHÔNG disconnect socketService để duy trì kết nối khi chuyển route
     };
   }, []);
+
+  // Tải dữ liệu từ API khi component mount và định kỳ
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        console.log('SensorContext: Loading initial data from SensorServices');
+        const SensorServices = (await import('../services/SensorServices')).default;
+        await contextValue.updateFromAPI(SensorServices);
+      } catch (error) {
+        console.error('SensorContext: Error loading initial data:', error);
+      }
+    };
+
+    // Tải dữ liệu ban đầu
+    if (sensorData.loading) {
+      loadInitialData();
+    }
+
+    // Thiết lập interval để tải dữ liệu định kỳ khi không có WebSocket
+    const dataRefreshInterval = setInterval(async () => {
+      if (!socketConnected) {
+        console.log('SensorContext: WebSocket disconnected, refreshing data from API');
+        try {
+          const SensorServices = (await import('../services/SensorServices')).default;
+          await contextValue.updateFromAPI(SensorServices);
+        } catch (error) {
+          console.error('SensorContext: Error refreshing data:', error);
+        }
+      }
+    }, 60000); // Cập nhật mỗi 1 phút nếu không có WebSocket
+
+    return () => {
+      clearInterval(dataRefreshInterval);
+    };
+  }, [socketConnected, sensorData.loading]);
 
   // Hàm buộc lưu dữ liệu
   const forceSaveData = () => {
@@ -359,7 +391,7 @@ export const SensorProvider = ({ children }) => {
         const result = await apiService.getLatestSensorData();
         console.log('SensorContext: API result:', result);
         
-        if (result.success && result.data.length > 0) {
+        if (result.success && result.data && result.data.length > 0) {
           // Lưu dữ liệu trước đó
           setPrevData({
             soilMoisture: sensorData.soilMoisture || 0,
@@ -375,21 +407,21 @@ export const SensorProvider = ({ children }) => {
           
           // Khởi tạo dữ liệu mới từ dữ liệu hiện tại
           let newSensorData = {
-            soilMoisture: sensorData.soilMoisture || 0,
-            temperature: sensorData.temperature || 0,
-            airHumidity: sensorData.airHumidity || 0,
+            soilMoisture: 0,
+            temperature: 0,
+            airHumidity: 0,
             pumpWater: {
-              status: sensorData.pumpWater?.status || 'Inactive',
-              speed: sensorData.pumpWater?.speed || 0
+              status: 'Inactive',
+              speed: 0
             },
             light: {
-              status: sensorData.light?.status || 'Off'
+              status: 'Off'
             },
             loading: false,
             error: null
           };
           
-          // Cập nhật dữ liệu mới từ API
+          // Dữ liệu từ API đã được lọc cho user hiện tại, vì backend đã check userId
           for (const sensor of result.data) {
             if (sensor.deviceType === 'soil_moisture' && 'soilMoisture' in sensor) {
               newSensorData.soilMoisture = sensor.soilMoisture;
@@ -401,33 +433,33 @@ export const SensorProvider = ({ children }) => {
                 newSensorData.airHumidity = sensor.airHumidity;
               }
             } else if (sensor.deviceType === 'pump_water') {
-              if ('status' in sensor) {
-                newSensorData.pumpWater.status = sensor.status;
-              }
-              if ('pumpSpeed' in sensor) {
-                newSensorData.pumpWater.speed = sensor.pumpSpeed;
-              }
+              newSensorData.pumpWater = {
+                status: sensor.status || 'Inactive',
+                speed: sensor.pumpSpeed || 0
+              };
             } else if (sensor.deviceType === 'light') {
-              if ('status' in sensor) {
-                newSensorData.light.status = sensor.status;
-              }
+              newSensorData.light = {
+                status: sensor.status || 'Off'
+              };
             }
           }
           
-          console.log('SensorContext: Updating state with new sensor data:', newSensorData);
+          // Cập nhật state
           setSensorData(newSensorData);
-          
-          return true;
+          return newSensorData;
+        } else {
+          console.log('SensorContext: No sensor data or data format issue, keeping existing data');
+          setSensorData(prev => ({ ...prev, loading: false }));
+          return sensorData;
         }
-        return false;
       } catch (error) {
-        console.error("SensorContext: Error fetching sensor data:", error);
-        setSensorData(prev => ({
-          ...prev,
+        console.error('SensorContext: Error fetching sensor data from API:', error);
+        setSensorData(prev => ({ 
+          ...prev, 
           loading: false,
-          error: "Failed to fetch sensor data"
+          error: error.message || 'Failed to fetch sensor data'
         }));
-        return false;
+        return sensorData;
       }
     }
   };
