@@ -27,6 +27,7 @@ import DeviceList from "./pages/admin/DeviceList/DeviceList";
 import UserList from "./pages/admin/UserList.jsx/UserList";
 import Notification from "./pages/Notification/Notification";
 import Report from "./pages/Report/Report";
+import ProfileSettings from "./pages/ProfileSettings/ProfileSettings.jsx"
 
 // Admin
 
@@ -146,6 +147,17 @@ function App() {
             <ProtectedRoute>
               <SidebarLayout>
                 <UserList />
+              </SidebarLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profileSettings"
+          element={
+            <ProtectedRoute>
+              <SidebarLayout>
+                <ProfileSettings />
               </SidebarLayout>
             </ProtectedRoute>
           }

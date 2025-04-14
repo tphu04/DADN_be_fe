@@ -9,6 +9,7 @@ import IconDashBoard from "../../assets/images/icon-dashboard.svg";
 import IconSetting from "../../assets/images/icon-setting.png";
 import IconNotification from "../../assets/images/icon-notification.svg";
 import IconConfig from "../../assets/images/icon-config.png";
+import IconReport from "../../assets/images/icon-Graph Report.svg"
 import IconProfile from "../../assets/images/icon-profile.svg";
 import IconHelp from "../../assets/images/icon-help.svg";
 import { IoIosLogOut } from "react-icons/io";
@@ -59,18 +60,18 @@ const Sidebar = () => {
               />
               <div>Device Setting</div>
             </NavLink>
+              <NavLink
+                to="/notification"
+                className={({ isActive }) => getNavLinkClass(isActive)}
+              >
+                <img
+                  src={IconNotification}
+                  alt="icon notification"
+                  className="w-[14px] h-[18px] object-cover"
+                />
+                <div>Notification</div>
+              </NavLink> 
             {/* <NavLink
-              to="/notification"
-              className={({ isActive }) => getNavLinkClass(isActive)}
-            >
-              <img
-                src={IconNotification}
-                alt="icon notification"
-                className="w-[14px] h-[18px] object-cover"
-              />
-              <div>Notification</div>
-            </NavLink> */}
-            <NavLink
               to="/config"
               className={({ isActive }) => getNavLinkClass(isActive)}
             >
@@ -80,14 +81,14 @@ const Sidebar = () => {
                 className="w-[23px] h-[23px] object-cover"
               />
               <div>Configure Server & Devices</div>
-            </NavLink>
+            </NavLink> */}
 
             <NavLink
               to="/report"
               className={({ isActive }) => getNavLinkClass(isActive)}
             >
               <img
-                src={IconConfig}
+                src={IconReport}
                 alt=""
                 className="w-[23px] h-[23px] object-cover"
               />
@@ -120,7 +121,7 @@ const Sidebar = () => {
         {/* Profile & help  */}
         <div>
           <NavLink
-            to="/profile"
+            to="/profileSettings"
             className={({ isActive }) => getNavLinkClass(isActive)}
           >
             <img

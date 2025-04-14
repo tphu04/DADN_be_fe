@@ -3,6 +3,7 @@ import SensorServices from "../../services/SensorServices";
 import DeviceServices from "../../services/DeviceServices";
 import DeviceList from "../../components/DeviceList/DeviceList";
 import { useSensorData } from "../../context/SensorContext";
+import "./styles.css";
 
 // Icon
 import IconIncrease from "../../assets/images/icon-increase.svg";
@@ -17,6 +18,40 @@ const THRESHOLD = {
   AIR_HUMIDITY: 100,  // Độ ẩm không khí tối đa (%)
   PUMP_SPEED: 100     // Tốc độ máy bơm tối đa (%)
 };
+
+// Chart
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+
+// Màu cho các phần của biểu đồ tròn
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28"];
+
+const barData = [
+  { name: "Mon", frequency: 10 },
+  { name: "Tue", frequency: 8 },
+  { name: "Wed", frequency: 15 },
+  { name: "Thu", frequency: 12 },
+  { name: "Fri", frequency: 9 },
+  { name: "Sat", frequency: 6 },
+  { name: "Sun", frequency: 11 },
+];
+
+const pieData = [
+  { name: "System", value: 40 },
+  { name: "Reminder", value: 30 },
+  { name: "Alert", value: 20 },
+];
 
 const Dashboard = () => {
   // Sử dụng context để lấy dữ liệu sensor thay vì quản lý state riêng
@@ -129,8 +164,9 @@ const Dashboard = () => {
   const airHumidityThresholdClass = getThresholdClass(sensorData.airHumidity, THRESHOLD.AIR_HUMIDITY);
   const pumpSpeedThresholdClass = getThresholdClass(sensorData.pumpWater?.speed || 0, THRESHOLD.PUMP_SPEED);
 
+
   return (
-    <div className="flex flex-col space-y-6">
+    <div className="flex flex-col space-y-6 ">
       {/* Socket connection status */}
       {/* <div className={`p-2 text-xs rounded ${socketConnected ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
         <span className="font-medium">WebSocket:</span> {socketConnected ? 'Connected' : 'Disconnected'} 
@@ -173,9 +209,10 @@ const Dashboard = () => {
       )} */}
       
       {/* Sensor Data cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 ">
         {/* Soil Moisture  */}
-        <div className={`w-full h-[170px] bg-gradient-to-b from-[#0093E9] to-[#80D0C7] rounded relative ${soilMoistureThresholdClass}`}>
+        <div className={`w-full h-[170px] bg-gradient-to-b from-[#0093E9] to-[#80D0C7] rounded relative ${soilMoistureThresholdClass}`}
+          style={{ animation: 'simpleFadeIn 0.5s ease-out' }}>
           <div className="p-[12px]">
             <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
               <div>
@@ -207,7 +244,8 @@ const Dashboard = () => {
         </div>
 
         {/* Temperature  */}
-        <div className={`w-full h-[170px] bg-gradient-to-b from-[#FF55AACD] to-[#FBDA61] rounded relative ${temperatureThresholdClass}`}>
+        <div className={`w-full h-[170px] bg-gradient-to-b from-[#FF55AACD] to-[#FBDA61] rounded relative ${temperatureThresholdClass}`}
+          style={{ animation: 'simpleFadeIn 0.5s ease-out' }}>
           <div className="p-[12px]">
             <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
               <div>
@@ -239,7 +277,8 @@ const Dashboard = () => {
         </div>
 
         {/* Air Humidity  */}
-        <div className={`w-full h-[170px] bg-gradient-to-b from-[#64E39E] to-[#53ECE5] rounded relative ${airHumidityThresholdClass}`}>
+        <div className={`w-full h-[170px] bg-gradient-to-b from-[#64E39E] to-[#53ECE5] rounded relative ${airHumidityThresholdClass}`}
+          style={{ animation: 'simpleFadeIn 0.5s ease-out' }}>
           <div className="p-[12px]">
             <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
               <div>
@@ -271,11 +310,12 @@ const Dashboard = () => {
         </div>
 
         {/* Pump Water  */}
-        <div className={`w-full h-[170px] bg-gradient-to-b from-[#8E7AFF] to-[#A682FF] rounded relative ${pumpSpeedThresholdClass}`}>
+        <div className={`w-full h-[170px] bg-gradient-to-b from-[#4568DC] to-[#A682FF] rounded relative ${pumpSpeedThresholdClass}`}
+          style={{ animation: 'simpleFadeIn 0.5s ease-out' }}>
           <div className="p-[12px]">
             <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
               <div>
-                Pump Water
+                Pump Water Speed
                 {(sensorData.pumpWater?.speed || 0) > THRESHOLD.PUMP_SPEED && 
                   <span className="ml-2 text-red-700 font-bold">⚠️ Quá ngưỡng!</span>
                 }
@@ -295,7 +335,7 @@ const Dashboard = () => {
                 alt="change icon"
                 className="w-[20px] h-[20px]"
               />
-              <div>{Math.abs(pumpSpeedChange)}% speed vs last reading</div>
+              <div>{Math.abs(pumpSpeedChange)}% vs last reading</div>
             </div>
 
             <div className="absolute right-2 bottom-6">
@@ -304,30 +344,94 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Light Device  */}
-        <div className="w-full h-[170px] bg-gradient-to-b from-[#FF6B6B] to-[#FF8E53] rounded relative">
-          <div className="p-[12px]">
-            <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
-              <div>
-                Light
-              </div>
-              <button className="w-[20px] h-[20px]">
-                <img src={Icon3Dots} alt="icon 3 dots" />
-              </button>
-            </div>
-            <div className="font-roboto text-[28px] font-bold text-white leading-[42px] my-[8px]">
-              {sensorData.loading ? "Loading..." : sensorData.light?.status || 'Off'}
-            </div>
-            <div className="text-white font-roboto text-[14px] font-normal leading-[20px]">
-              Status: {sensorData.light?.status || 'Off'}
-            </div>
+       {/* Light Device  */}
+       <div className="w-full h-[170px] bg-gradient-to-b from-[#FBAB7E] to-[#F7CE68] rounded relative"
+          style={{ animation: 'simpleFadeIn 0.5s ease-out' }}>
+         <div className="p-[12px]">
+           <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
+             <div>
+               Light
+             </div>
+             <button className="w-[20px] h-[20px]">
+               <img src={Icon3Dots} alt="icon 3 dots" />
+             </button>
+           </div>
+           <div className="font-roboto text-[28px] font-bold text-white leading-[42px] my-[8px]">
+             {sensorData.loading ? "Loading..." : sensorData.light?.status || 'Off'}
+           </div>
+           <div className="text-white font-roboto text-[14px] font-normal leading-[20px]">
+             Status: {sensorData.light?.status || 'Off'}
+           </div>
 
-            <div className="absolute right-2 bottom-6">
-              <img src={IconChart} alt="icon chart" />
-            </div>
-          </div>
+           <div className="absolute right-2 bottom-6">
+             <img src={IconChart} alt="icon chart" />
+           </div>
+         </div>
+       </div>
+    </div>
+
+    <div className="flex flex-col md:flex-row gap-6">
+      {/* Biểu đồ cột */}
+      <div className="flex-1 bg-white p-6 rounded-md shadow-md">
+        <h2 className="text-black font-roboto text-base font-semibold leading-6">
+          Statistics of the frequency of water pump operations
+        </h2>
+        <p className="text-sm text-gray-500 mb-4">Week</p>
+        <div className="w-full h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={barData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="frequency" barSize={18}>
+                {barData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={index % 2 === 0 ? "#448569" : "#854444"}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
+
+      {/* Biểu đồ tròn */}
+      <div className="flex-1 bg-white p-6 rounded-md shadow-md">
+        <h2 className="text-black font-roboto text-base font-semibold leading-6">
+          Notification statistics
+        </h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Statistics of daily notifications
+        </p>
+        <div className="w-full h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={pieData}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={70}
+                innerRadius={50}
+                label
+              >
+                {pieData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={COLORS[index % COLORS.length]}
+                  />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend iconType="circle" />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
 
       {/* Device List section */}
       <div className="mt-8">

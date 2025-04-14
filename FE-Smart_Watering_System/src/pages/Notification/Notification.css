@@ -1,0 +1,90 @@
+@keyframes fadeInSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px); 
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0); 
+  }
+}
+/* Container tổng thể của trang */
+.notification-page-container {
+    background-color: #f0f2f5; /* Màu nền tổng thể giống Ant Design Pro */
+    min-height: calc(100vh - 64px); /* Chiều cao tối thiểu (điều chỉnh nếu cần) */
+    padding-bottom: 24px; /* Thêm khoảng cách dưới */
+  }
+  
+  /* Header với ảnh nền */
+  .notification-header {
+    position: relative;
+    height: 200px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  
+  .notification-header-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+  }
+  
+  .notification-header-content {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 0 40px;
+    background: linear-gradient(to right, rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.25)); /* Gradient đậm hơn chút */
+  }
+  
+  /* Phần thân chứa search, filter, table */
+  .notification-body-content {
+     margin: 0 auto; /* Căn giữa nội dung */
+     max-width: 1200px; /* Giới hạn chiều rộng tối đa */
+     padding: 24px;
+     background-color: #fff; /* Nền trắng cho phần nội dung */
+     border-radius: 8px; /* Bo góc */
+     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09); /* Đổ bóng nhẹ */
+     animation: fadeInSlideUp 0.7s ease-out forwards;
+  }
+  
+  
+  /* Style cho table */
+  .notification-table .ant-table {
+    border-radius: 8px; /* Bo góc cho table */
+    overflow: hidden; /* Đảm bảo bo góc áp dụng cho header table */
+  }
+  
+  /* Bỏ border mặc định và thêm border dưới cho header */
+  .notification-table .ant-table-thead > tr > th {
+    background-color: #fafafa !important; /* Màu nền header */
+    border-bottom: 1px solid #f0f0f0 !important;
+    font-weight: 500;
+  }
+  
+  /* Bỏ border giữa các cell trong body */
+  .notification-table .ant-table-tbody > tr > td {
+    border: none;
+    border-bottom: 1px solid #f0f0f0; /* Chỉ giữ border dưới */
+  }
+  .notification-table .ant-table-tbody > tr:last-child > td {
+      border-bottom: none; /* Bỏ border dưới cho hàng cuối */
+  }
+  
+  /* Style cho Tag trong cột Type (nếu dùng) */
+  .notification-table .ant-tag {
+      margin-right: 0; /* Bỏ margin mặc định của tag */
+  }
+  
+  /* Tùy chỉnh Pagination nếu cần */
+  .notification-table .ant-pagination {
+    padding-top: 16px;
+  }

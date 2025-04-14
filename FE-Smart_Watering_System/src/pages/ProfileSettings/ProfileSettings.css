@@ -1,0 +1,137 @@
+@keyframes fadeInSlideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px); 
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0); 
+    }
+  }
+/* Container tổng thể của trang Profile */
+.profile-settings-page-container {
+    background-color: #f0f2f5; /* Màu nền xám nhạt chung */
+    min-height: calc(100vh - 64px); /* Chiều cao tối thiểu (điều chỉnh nếu cần) */
+    padding-bottom: 32px; /* Thêm padding dưới */
+  }
+  
+  /* Header với ảnh nền */
+  .profile-settings-header {
+    position: relative;
+    height: 200px; /* Chiều cao header */
+    margin-bottom: 24px; /* Khoảng cách với phần dưới */
+    overflow: hidden; /* Đảm bảo ảnh nền không tràn */
+  }
+  
+  .profile-settings-header-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Che phủ toàn bộ */
+    z-index: 1;
+  }
+  
+  .profile-settings-header-content {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start; /* Căn trái */
+    padding: 0 40px;
+    /* Gradient tối màu che phủ ảnh nền */
+    background: linear-gradient(to right, rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.25));
+  }
+  
+  /* Phần thân chứa nội dung cài đặt (khung trắng) */
+  .profile-settings-body-content {
+     margin: 0 auto; /* Căn giữa */
+     max-width: 1200px; /* Giới hạn chiều rộng */
+     padding: 32px; /* Padding bên trong */
+     background-color: #fff; /* Nền trắng */
+     border-radius: 8px; /* Bo góc */
+     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09); /* Đổ bóng nhẹ */
+     animation: fadeInSlideUp 0.7s ease-out forwards
+  }
+  
+  /* --- Các khối style riêng cho Profile Settings --- */
+  
+  /* Khối thông tin người dùng */
+  .user-info-section {
+    background-color: #e6f7f0; /* Màu xanh lá nhạt */
+    border-radius: 8px;
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  
+  .user-info-section .user-details {
+    flex-grow: 1; /* Text chiếm không gian còn lại */
+  }
+  
+  /* Nút Update Information */
+  .user-info-section .ant-btn-primary {
+    background-color: #272727; /* Màu đen/xám đậm */
+    border-color: #272727;
+  }
+  .user-info-section .ant-btn-primary:hover {
+      background-color: #434343;
+      border-color: #434343;
+  }
+  
+  /* Khối bật/tắt thông báo */
+  .notification-toggle-section {
+    background-color: #ffffff;
+    border-radius: 8px;
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid #f0f0f0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+  
+  /* Khối đổi mật khẩu */
+  .change-password-section {
+    background-color: #ffffff;
+    border-radius: 8px;
+    padding: 32px 24px;
+    border: 1px solid #f0f0f0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    height: 100%; /* Giúp cột cao bằng nhau */
+  }
+  
+  /* Nút Update Password */
+  .change-password-section .ant-btn-primary {
+      background-color: #272727;
+      border-color: #272727;
+  }
+  .change-password-section .ant-btn-primary:hover {
+      background-color: #434343;
+      border-color: #434343;
+  }
+  
+  /* Responsive */
+  @media (max-width: 767px) { /* md breakpoint của Antd/Tailwind */
+      .change-password-section {
+          margin-top: 24px;
+      }
+      .user-info-section {
+          flex-direction: column;
+          align-items: flex-start;
+      }
+       .user-info-section .ant-btn {
+          margin-top: 16px;
+      }
+      .profile-settings-body-content {
+          padding: 24px; /* Giảm padding trên mobile */
+      }
+      .profile-settings-header-content {
+          padding: 0 24px; /* Giảm padding header trên mobile */
+      }
+  }

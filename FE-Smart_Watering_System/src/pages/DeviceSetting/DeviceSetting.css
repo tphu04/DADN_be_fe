@@ -1,0 +1,118 @@
+@keyframes fadeInSlideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px); 
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0); 
+    }
+  }
+
+/* Animation thay đổi chiều rộng */
+@keyframes typing {
+    from { width: 0 }
+    to { width: 100% }
+  }
+  
+  /* Animation cho con trỏ nhấp nháy */
+  @keyframes blink-caret {
+    from, to { border-color: linear-gradient(to right, #21D4FD, #B721FF); } 
+    50% { border-color: transparent; } 
+  }
+  
+  /* Animation MỚI chỉ để ẩn border cuối cùng */
+  @keyframes hide-border {
+    to { border-color: transparent; }
+  }
+  
+  /* Class cho tiêu đề */
+  .devicesetting-body-content .typewriter-gradient-title {
+    /* Gradient */
+    background: linear-gradient(to right, #21D4FD, #B721FF);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  
+    /* Typing effect */
+    display: inline-block;
+    overflow: hidden;
+    white-space: nowrap;
+    border-right: .12em solid blue; /* Bắt đầu với con trỏ màu cam */
+    width: 0;
+  
+    /* Áp dụng animation */
+    animation:
+      typing 3.5s steps(29, end) forwards, 
+      blink-caret .75s step-end infinite, 
+      hide-border 0s linear 1.5s forwards; /* duration 0s, delay 3.5s */
+  
+    /* Style khác */
+    margin-bottom: 2rem;
+    font-weight: 600;
+  }
+  
+  /* Container để căn giữa */
+  .title-container {
+      text-align: center;
+      min-height: 3em;
+  }
+  
+  
+  /* Container tổng thể của trang */
+  .devicesetting-page-container {
+      background-color: #f0f2f5; /* Màu nền tổng thể */
+      min-height: calc(100vh - 64px); /* Chiều cao tối thiểu */
+      padding-bottom: 24px;
+    }
+  
+    /* Header với ảnh nền */
+    .devicesetting-header {
+      position: relative;
+      height: 200px;
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+  
+    .devicesetting-header-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 1;
+    }
+  
+    .devicesetting-header-content {
+      position: relative;
+      z-index: 2;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 0 40px;
+      background: linear-gradient(to right, rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.25));
+    }
+  
+    /* Phần thân chứa nội dung cài đặt */
+    .devicesetting-body-content {
+       margin: 0 auto;
+       max-width: 1200px;
+       padding: 32px;
+       background-color: #fff;
+       border-radius: 8px;
+       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+       animation: fadeInSlideUp 0.7s ease-out forwards;
+    }
+  
+    /* Responsive cho grid cards nếu cần */
+    @media (max-width: 640px) {
+      .devicesetting-body-content .grid {
+          grid-template-columns: 1fr;
+      }
+      .devicesetting-body-content {
+          padding: 24px;
+      }
+    }
