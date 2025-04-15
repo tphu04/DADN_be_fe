@@ -32,7 +32,6 @@ class NotificationService {
                     source: notification.source || null,
                     value: notification.value ? String(notification.value) : null,
                     deviceId: notification.deviceId,
-                    timestamp: new Date()
                 }
             });
 
@@ -58,16 +57,98 @@ class NotificationService {
      * @returns {Promise<Object>} - Thông báo đã tạo
      */
     async createThresholdNotification(device, feed, value, isOverMax) {
-        const threshold = isOverMax ? feed.maxValue : feed.minValue;
-        const message = `${device.deviceCode}: Giá trị ${feed.name} (${value}) ${isOverMax ? 'vượt quá ngưỡng tối đa' : 'dưới ngưỡng tối thiểu'} (${threshold})`;
-        
-        return this.createNotification({
-            message,
-            type: 'THRESHOLD',
-            source: device.deviceCode,
-            deviceId: device.id,
-            value: String(value)
-        });
+        try {
+            // Lấy cấu hình mới nhất từ bảng configuration dựa theo updatedAt
+            const latestConfig = await prisma.configuration.findFirst({
+                orderBy: { updatedAt: 'desc' }
+            });
+
+            if (!latestConfig) {
+                throw new Error("Không tìm thấy cấu hình hệ thống!");
+            }
+
+            // Xác định threshold dựa trên loại feed, chuyển về chữ thường để đảm bảo nhất quán
+            let threshold;
+            // Chuyển feed.name và feed.feedKey về chữ thường để so sánh không phân biệt hoa thường
+            const feedNameLower = feed.name.toLowerCase();
+            const feedKeyLower = feed.feedKey ? feed.feedKey.toLowerCase() : '';
+
+            console.log(`🔍 Đang xác định loại của feed: ${feed.name} (${feed.feedKey})`);
+
+            // Kiểm tra xem feed có liên quan đến nhiệt độ không
+            if (feedNameLower.includes('temp') || 
+                feedNameLower.includes('temperature') || 
+                feedNameLower.includes('nhiet') || 
+                feedKeyLower.includes('temp') || 
+                feedKeyLower.includes('nhiet') || 
+                feedKeyLower.includes('nhietdo')) {
+                
+                console.log(`✅ Xác định feed "${feed.name}" là loại: Nhiệt độ`);
+                threshold = isOverMax ? latestConfig.temperatureMax : latestConfig.temperatureMin;
+            }
+            // Kiểm tra xem feed có liên quan đến độ ẩm không khí không
+            else if (feedNameLower.includes('humid') || 
+                    feedNameLower.includes('humidity') || 
+                    feedNameLower.includes('doam') || 
+                    feedKeyLower.includes('humid') || 
+                    feedKeyLower.includes('doam') || 
+                    !feedNameLower.includes('soil') && (feedNameLower.includes('moisture') || feedKeyLower.includes('moisture'))) {
+                
+                console.log(`✅ Xác định feed "${feed.name}" là loại: Độ ẩm không khí`);
+                threshold = isOverMax ? latestConfig.humidityMax : latestConfig.humidityMin;
+            }
+            // Kiểm tra xem feed có liên quan đến độ ẩm đất không
+            else if (feedNameLower.includes('soil') || 
+                    feedNameLower.includes('dat') || 
+                    feedKeyLower.includes('soil') || 
+                    feedKeyLower.includes('dat') || 
+                    feedKeyLower.includes('doamdat') || 
+                    (feedNameLower.includes('soil') && feedNameLower.includes('moisture'))) {
+                
+                console.log(`✅ Xác định feed "${feed.name}" là loại: Độ ẩm đất`);
+                threshold = isOverMax ? latestConfig.soilMoistureMax : latestConfig.soilMoistureMin;
+            }
+            else {
+                // Nếu không thể xác định, thử từng loại
+                console.log(`⚠️ Không thể xác định loại của feed: ${feed.name} (${feed.feedKey}), đang thử xác định theo các từ khóa`);
+                
+                // Object mapping cho các loại feed và giá trị cấu hình tương ứng
+                const configMap = {
+                    'humidity': { max: latestConfig.humidityMax, min: latestConfig.humidityMin, type: 'Độ ẩm không khí' },
+                    'temperature': { max: latestConfig.temperatureMax, min: latestConfig.temperatureMin, type: 'Nhiệt độ' },
+                    'soil': { max: latestConfig.soilMoistureMax, min: latestConfig.soilMoistureMin, type: 'Độ ẩm đất' },
+                    'moisture': { max: latestConfig.soilMoistureMax, min: latestConfig.soilMoistureMin, type: 'Độ ẩm đất' }
+                };
+                
+                // Tìm từ khóa phù hợp trong tên feed hoặc feedKey
+                const matchedKey = Object.keys(configMap).find(key => 
+                    feedNameLower.includes(key) || 
+                    feedKeyLower.includes(key)
+                );
+                
+                if (matchedKey) {
+                    console.log(`✅ Xác định feed "${feed.name}" là loại: ${configMap[matchedKey].type} theo từ khóa "${matchedKey}"`);
+                    threshold = isOverMax ? configMap[matchedKey].max : configMap[matchedKey].min;
+                } else {
+                    console.error(`❌ Không thể xác định loại của feed: ${feed.name} (${feed.feedKey})`);
+                    throw new Error(`Loại feed không hợp lệ: ${feed.name}`);
+                }
+            }
+
+            console.log(`🌡️ Ngưỡng đã xác định: ${threshold} (${isOverMax ? 'Tối đa' : 'Tối thiểu'})`);
+            const message = `${device.deviceCode}: Giá trị ${feed.name} (${value}) ${isOverMax ? 'vượt quá ngưỡng tối đa' : 'dưới ngưỡng tối thiểu'} (${threshold})`;
+
+            return this.createNotification({
+                message,
+                type: 'THRESHOLD',
+                source: device.deviceCode,
+                deviceId: device.id,
+                value: String(value)
+            });
+        } catch (error) {
+            console.error('Lỗi khi tạo thông báo ngưỡng:', error);
+            throw error;
+        }
     }
 
     /**
@@ -148,6 +229,72 @@ class NotificationService {
     }
 
     /**
+     * Tạo thông báo khi người dùng điều chỉnh tốc độ máy bơm
+     * @param {Object} device - Thông tin thiết bị
+     * @param {number} speed - Tốc độ máy bơm mới
+     * @param {string} username - Tên người dùng thực hiện hành động
+     * @returns {Promise<Object>} - Thông báo đã tạo
+     */
+    async createPumpSpeedAdjustmentNotification(device, speed, username = 'Người dùng') {
+        const message = `${username} đã điều chỉnh tốc độ máy bơm ${device.deviceCode} thành ${speed}%`;
+        
+        return this.createNotification({
+            message,
+            type: 'USER_ACTION',
+            source: device.deviceCode,
+            deviceId: device.id,
+            value: String(speed)
+        });
+    }
+
+    /**
+     * Tạo thông báo khi người dùng bật/tắt đèn
+     * @param {Object} device - Thông tin thiết bị
+     * @param {boolean} isOn - Trạng thái bật/tắt
+     * @param {string} username - Tên người dùng thực hiện hành động
+     * @returns {Promise<Object>} - Thông báo đã tạo
+     */
+    async createLightToggleNotification(device, isOn, username = 'Người dùng') {
+        const message = `${username} đã ${isOn ? 'BẬT' : 'TẮT'} đèn ${device.deviceCode}`;
+        
+        return this.createNotification({
+            message,
+            type: 'USER_ACTION',
+            source: device.deviceCode,
+            deviceId: device.id,
+            value: isOn ? 'On' : 'Off'
+        });
+    }
+
+    /**
+     * Tạo thông báo khi người dùng lưu cấu hình tự động
+     * @param {Object} device - Thông tin thiết bị
+     * @param {Object} config - Thông tin cấu hình
+     * @param {string} username - Tên người dùng thực hiện hành động
+     * @returns {Promise<Object>} - Thông báo đã tạo
+     */
+    async createAutomationConfigNotification(device, config, username = 'Người dùng') {
+        const configType = config.scheduleType || 'unknown';
+        let configDetails = '';
+        
+        if (configType === 'watering') {
+            configDetails = `thời gian: ${config.startTime}, thời lượng: ${config.duration} phút, tốc độ: ${config.speed}%`;
+        } else if (configType === 'lighting') {
+            configDetails = `thời gian bật: ${config.startTime}, thời gian tắt: ${config.endTime}`;
+        }
+        
+        const message = `${username} đã cấu hình tự động ${configType} cho thiết bị ${device.deviceCode} (${configDetails})`;
+        
+        return this.createNotification({
+            message,
+            type: 'AUTOMATION',
+            source: device.deviceCode,
+            deviceId: device.id,
+            value: JSON.stringify(config)
+        });
+    }
+
+    /**
      * Lấy danh sách thông báo mới nhất
      * @param {number} limit - Số lượng thông báo tối đa
      * @returns {Promise<Array>} - Danh sách thông báo
@@ -156,59 +303,11 @@ class NotificationService {
         try {
             return await prisma.notification.findMany({
                 take: limit,
-                orderBy: { timestamp: 'desc' },
-                include: { device: true }
+                orderBy: { createdAt: 'desc' },
+                include: { iotdevice: true }
             });
         } catch (error) {
             console.error('Lỗi khi lấy danh sách thông báo:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Đánh dấu thông báo là đã đọc
-     * @param {number} id - ID của thông báo
-     * @returns {Promise<Object>} - Thông báo đã cập nhật
-     */
-    async markAsRead(id) {
-        try {
-            return await prisma.notification.update({
-                where: { id },
-                data: { isRead: true }
-            });
-        } catch (error) {
-            console.error(`Lỗi khi đánh dấu thông báo ${id} là đã đọc:`, error);
-            throw error;
-        }
-    }
-
-    /**
-     * Đánh dấu tất cả thông báo là đã đọc
-     * @returns {Promise<Object>} - Số lượng thông báo đã cập nhật
-     */
-    async markAllAsRead() {
-        try {
-            return await prisma.notification.updateMany({
-                where: { isRead: false },
-                data: { isRead: true }
-            });
-        } catch (error) {
-            console.error('Lỗi khi đánh dấu tất cả thông báo là đã đọc:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Lấy số lượng thông báo chưa đọc
-     * @returns {Promise<number>} - Số lượng thông báo chưa đọc
-     */
-    async getUnreadCount() {
-        try {
-            return await prisma.notification.count({
-                where: { isRead: false }
-            });
-        } catch (error) {
-            console.error('Lỗi khi lấy số lượng thông báo chưa đọc:', error);
             throw error;
         }
     }

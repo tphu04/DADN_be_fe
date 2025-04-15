@@ -20,22 +20,15 @@ model admin {
 model configuration {
   id              Int       @id @default(autoincrement())
   userId          Int
-  deviceId        Int
   createdAt       DateTime  @default(now())
   humidityMax     Float     @default(100)
   humidityMin     Float     @default(0)
-  lightOn         Boolean   @default(false)
-  pumpWaterOn     Boolean   @default(false)
-  pumpWaterSpeed  Int       @default(0)
   soilMoistureMax Float     @default(100)
   soilMoistureMin Float     @default(0)
   temperatureMax  Float     @default(100)
   temperatureMin  Float     @default(0)
-  updatedAt       DateTime
-  iotdevice       iotdevice @relation(fields: [deviceId], references: [id], map: "Configuration_deviceId_fkey")
+  updatedAt       DateTime  @default(now()) @updatedAt
   user            user      @relation(fields: [userId], references: [id], map: "Configuration_userId_fkey")
-
-  @@index([deviceId], map: "Configuration_deviceId_fkey")
   @@index([userId], map: "Configuration_userId_fkey")
 }
 
@@ -43,8 +36,6 @@ model feed {
   id        Int       @id @default(autoincrement())
   name      String
   feedKey   String
-  minValue  Float?
-  maxValue  Float?
   lastValue Float?
   deviceId  Int
   iotdevice iotdevice @relation(fields: [deviceId], references: [id], map: "Feed_deviceId_fkey")
@@ -62,14 +53,13 @@ model iotdevice {
   isOnline                Boolean                   @default(false)
   lastSeen                DateTime?
   lastSeenAt              DateTime?
-  configuration           configuration[]
   feed                    feed[]
   lightdata               lightdata[]
   notification            notification[]
   pumpwaterdata           pumpwaterdata[]
   soilmoisturedata        soilmoisturedata[]
   temperaturehumiditydata temperaturehumiditydata[]
-
+  scheduled               scheduled[]
 }
 
 model lightdata {
@@ -78,7 +68,6 @@ model lightdata {
   readingTime DateTime         @default(now())
   deviceId    Int
   intensity   Int              @default(0)
-  lightUserId Int?
   iotdevice   iotdevice        @relation(fields: [deviceId], references: [id], map: "LightData_deviceId_fkey")
 
   @@index([deviceId], map: "LightData_deviceId_fkey")
@@ -91,7 +80,6 @@ model notification {
   source    String?
   createdAt DateTime  @default(now())
   value     String?
-  timestamp DateTime  @default(now())
   deviceId  Int
   iotdevice iotdevice @relation(fields: [deviceId], references: [id], map: "Notification_deviceId_fkey")
 
@@ -104,7 +92,6 @@ model pumpwaterdata {
   pumpSpeed   Int
   readingTime DateTime  @default(now())
   deviceId    Int
-  pumpUserId  Int?
   iotdevice   iotdevice @relation(fields: [deviceId], references: [id], map: "PumpWaterData_deviceId_fkey")
 
   @@index([deviceId], map: "PumpWaterData_deviceId_fkey")
@@ -144,8 +131,34 @@ model user {
   role                    String?                   @default("USER") @db.VarChar(10)
   isAccepted              Boolean?                  @default(false)
   configuration           configuration[]
+  scheduled               scheduled[]
+}
 
+model scheduled {
+  id               Int           @id @default(autoincrement())
+  userId           Int
+  deviceId         Int
+  scheduleType     schedule_type
+  enabled          Boolean       @default(false)
+  startTime        String?       // Thời gian bắt đầu cho watering hoặc thời gian bật cho lighting (HH:MM)
+  endTime          String?       // Thời gian tắt cho lighting (HH:MM)
+  duration         Int?          // Thời lượng tưới cho watering (phút)
+  speed            Int?          // Tốc độ bơm cho watering (0-100)
+  days             String        // Các ngày trong tuần, lưu dạng JSON: ["monday", "wednesday", ...]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  lastExecuted     DateTime?     // Thời điểm lịch trình được thực thi gần nhất
+  nextExecution    DateTime?     // Thời điểm lịch trình sẽ được thực thi tiếp theo
+  autoMode         Boolean       @default(true) // Chế độ tự động
+  
+  // Quan hệ
+  user             user          @relation(fields: [userId], references: [id])
+  device           iotdevice     @relation(fields: [deviceId], references: [id])
+}
 
+enum schedule_type {
+  watering
+  lighting
 }
 
 enum lightdata_status {

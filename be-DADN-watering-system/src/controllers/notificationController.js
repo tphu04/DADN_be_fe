@@ -20,7 +20,7 @@ exports.getNotifications = async (req, res) => {
         const notifications = await prisma.notification.findMany({
             take: limit,
             skip: offset,
-            orderBy: { timestamp: 'desc' },
+            orderBy: { createdAt: 'desc' },
             include: {
                 iotdevice: {
                     select: {

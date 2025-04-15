@@ -149,24 +149,53 @@ const deviceController = {
             
             // Tạo configuration nếu có userId và thiết bị vừa được tạo mới
             if (deviceData.userId && !existingDevice) {
-                await prisma.configuration.create({
-                    data: {
+                // Kiểm tra xem đã có cấu hình tương tự chưa
+                const humidityMax = deviceData.humidityMax || 100;
+                const humidityMin = deviceData.humidityMin || 0;
+                const temperatureMax = deviceData.temperatureMax || 100;
+                const temperatureMin = deviceData.temperatureMin || 0;
+                const soilMoistureMax = deviceData.soilMoistureMax || 100;
+                const soilMoistureMin = deviceData.soilMoistureMin || 0;
+                const lightOn = deviceData.lightOn || false;
+                const pumpWaterOn = deviceData.pumpWaterOn || false;
+                const pumpWaterSpeed = deviceData.pumpWaterSpeed || 0;
+                
+                const existingConfig = await prisma.configuration.findFirst({
+                    where: {
                         userId: parseInt(deviceData.userId),
-                        deviceId: newDevice.id,
-                        updatedAt: new Date(),
-                        // Thêm các giá trị configuration khác nếu có
-                        humidityMax: deviceData.humidityMax || 100,
-                        humidityMin: deviceData.humidityMin || 0,
-                        temperatureMax: deviceData.temperatureMax || 100,
-                        temperatureMin: deviceData.temperatureMin || 0,
-                        soilMoistureMax: deviceData.soilMoistureMax || 100,
-                        soilMoistureMin: deviceData.soilMoistureMin || 0,
-                        lightOn: deviceData.lightOn || false,
-                        pumpWaterOn: deviceData.pumpWaterOn || false,
-                        pumpWaterSpeed: deviceData.pumpWaterSpeed || 0
+                        humidityMax,
+                        humidityMin,
+                        temperatureMax,
+                        temperatureMin,
+                        soilMoistureMax,
+                        soilMoistureMin,
+                        lightOn,
+                        pumpWaterOn,
+                        pumpWaterSpeed
                     }
                 });
-                console.log(`Đã tạo configuration cho thiết bị ID: ${newDevice.id}`);
+                
+                if (existingConfig) {
+                    console.log(`Sử dụng cấu hình đã tồn tại với ID: ${existingConfig.id} cho thiết bị ID: ${newDevice.id}`);
+                } else {
+                    await prisma.configuration.create({
+                        data: {
+                            userId: parseInt(deviceData.userId),
+                            deviceId: newDevice.id,
+                            updatedAt: new Date(),
+                            humidityMax,
+                            humidityMin,
+                            temperatureMax,
+                            temperatureMin,
+                            soilMoistureMax,
+                            soilMoistureMin,
+                            lightOn,
+                            pumpWaterOn,
+                            pumpWaterSpeed
+                        }
+                    });
+                    console.log(`Đã tạo configuration mới cho thiết bị ID: ${newDevice.id}`);
+                }
             }
 
             // Trả về thông tin thiết bị đã tạo hoặc đã tìm thấy
@@ -198,15 +227,12 @@ const deviceController = {
             const deviceId = parseInt(req.params.id);
             const { description, status, feeds } = req.body;
             
-            // Kiểm tra thiết bị có tồn tại và thuộc về user không
+            // Kiểm tra thiết bị có tồn tại không
+            // Lưu ý: Đã loại bỏ kiểm tra configuration vì không có mối quan hệ này trong model
             const existingDevice = await prisma.iotdevice.findFirst({
                 where: {
-                    id: deviceId,
-                    configuration: {
-                        some: {
-                            userId: userId
-                        }
-                    }
+                    id: deviceId
+                    // Trong trường hợp cần kiểm tra quyền, có thể sử dụng các cách khác để xác định quyền sở hữu
                 },
                 include: {
                     feed: true
@@ -661,7 +687,7 @@ const deviceController = {
             const device = await prisma.iotdevice.findFirst({
                 where: {
                     id: deviceId,
-                    configuration: {
+                    scheduled: {
                         some: {
                             userId: userId
                         }
@@ -712,48 +738,140 @@ const deviceController = {
     // Điều khiển thiết bị
     async controlDevice(req, res) {
         try {
-            const userId = req.user.id;
+            // Lấy thông tin thiết bị từ params và body
             const deviceId = parseInt(req.params.id);
-            const { command } = req.body;
-            
-            // Kiểm tra thiết bị có tồn tại và thuộc về user không
-            const device = await prisma.iotdevice.findFirst({
-                where: {
-                    id: deviceId,
-                    userId: userId
+            const { type, status, speed } = req.body;
+            const userId = req.user.id;
+
+            console.log(`Đang xử lý yêu cầu điều khiển thiết bị:`, { deviceId, type, status, speed });
+
+            // Kiểm tra tính hợp lệ của dữ liệu đầu vào
+            if (!deviceId || !type || !status) {
+                console.log(`Thiếu thông tin thiết bị hoặc thao tác:`, { deviceId, type, status });
+                return res.status(400).json({ success: false, message: 'Thiếu thông tin thiết bị hoặc thao tác' });
+            }
+
+            // Chấp nhận cả 'pump' và 'pumpWater' để tương thích với frontend
+            const normalizedType = type === 'pump' ? 'pumpWater' : type;
+
+            if ((normalizedType !== 'pumpWater' && normalizedType !== 'light') || (status !== 'On' && status !== 'Off')) {
+                console.log(`Loại thiết bị hoặc trạng thái không hợp lệ:`, { type, normalizedType, status });
+                return res.status(400).json({ success: false, message: 'Loại thiết bị hoặc trạng thái không hợp lệ' });
+            }
+
+            // Kiểm tra thiết bị có tồn tại không
+            const device = await prisma.iotdevice.findUnique({
+                where: { id: deviceId }
+            });
+
+            if (!device) {
+                console.log(`Thiết bị không tồn tại: ${deviceId}`);
+                return res.status(404).json({ success: false, message: 'Thiết bị không tồn tại' });
+            }
+
+            // Kiểm tra thiết bị có phải là loại đèn hoặc máy bơm không
+            if ((normalizedType === 'pumpWater' && device.deviceType !== 'pump_water') ||
+                (normalizedType === 'light' && device.deviceType !== 'light')) {
+                console.log(`Loại thiết bị không phù hợp với thao tác:`, { normalizedType, deviceType: device.deviceType });
+                return res.status(400).json({ success: false, message: 'Loại thiết bị không phù hợp với thao tác' });
+            }
+
+            // Lấy thông tin người dùng để hiển thị trong thông báo (nếu có)
+            const user = req.user ? `Người dùng (ID: ${req.user.id})` : 'Hệ thống';
+
+            // Sử dụng MQTT service đã cập nhật để gửi lệnh điều khiển
+            if (normalizedType === 'pumpWater') {
+                // Cập nhật dữ liệu máy bơm
+                await prisma.pumpwaterdata.create({
+                    data: {
+                        status: status,
+                        pumpSpeed: status === 'On' ? parseInt(speed) || 50 : 0,
+                        deviceId: deviceId
+                    }
+                });
+
+                // Gửi lệnh qua MQTT service
+                const pumpSpeed = status === 'On' ? parseInt(speed) || 50 : 0;
+                const result = await mqttService.publishToDevice(deviceId, 'pump', {
+                    status: status,
+                    speed: pumpSpeed
+                });
+
+                if (!result) {
+                    console.log(`Lỗi khi gửi lệnh điều khiển máy bơm qua MQTT`);
+                    // Không trả về lỗi, vẫn tiếp tục xử lý
+                }
+
+                // Tạo thông báo về việc điều khiển máy bơm
+                try {
+                    const notificationService = require('../services/notificationService');
+                    await notificationService.createPumpNotification(
+                        device, 
+                        status === 'On', 
+                        status === 'On' ? pumpSpeed : 0
+                    );
+                } catch (notificationError) {
+                    console.error('Lỗi khi tạo thông báo PUMP:', notificationError);
+                }
+            } else { // normalizedType === 'light'
+                // Cập nhật dữ liệu đèn
+                await prisma.lightdata.create({
+                    data: {
+                        status: status === 'On' ? 'On' : 'Off',
+                        intensity: status === 'On' ? 100 : 0,
+                        deviceId: deviceId
+                    }
+                });
+
+                // Gửi lệnh qua MQTT service
+                const result = await mqttService.publishToDevice(deviceId, 'light', {
+                    status: status
+                });
+
+                if (!result) {
+                    console.log(`Lỗi khi gửi lệnh điều khiển đèn qua MQTT`);
+                    // Không trả về lỗi, vẫn tiếp tục xử lý
+                }
+
+                // Tạo thông báo về việc điều khiển đèn
+                try {
+                    const notificationService = require('../services/notificationService');
+                    await notificationService.createLightToggleNotification(
+                        device, 
+                        status === 'On',
+                        user
+                    );
+                } catch (notificationError) {
+                    console.error('Lỗi khi tạo thông báo đèn:', notificationError);
+                }
+            }
+
+            // Cập nhật trạng thái thiết bị trong database
+            // Chỉ cập nhật trường status và isOnline theo schema
+            await prisma.iotdevice.update({
+                where: { id: deviceId },
+                data: {
+                    status: status === 'On' ? 'On' : 'Off',
+                    isOnline: true,
+                    lastSeen: new Date(),
+                    lastSeenAt: new Date()
                 }
             });
             
-            if (!device) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Không tìm thấy thiết bị hoặc bạn không có quyền truy cập'
-                });
-            }
-            
-            // Kiểm tra thiết bị có đang online không
-            if (!device.isOnline) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Thiết bị đang offline'
-                });
-            }
-            
-            // Gửi lệnh điều khiển qua MQTT
-            const result = await mqttService.sendCommand(device.deviceCode, command);
-            
-            return res.json({
-                success: true,
-                message: 'Gửi lệnh điều khiển thành công',
-                data: result
+            // Lưu dữ liệu chi tiết vào bảng tương ứng đã được thực hiện ở phần trước
+
+            return res.status(200).json({ 
+                success: true, 
+                message: `Điều khiển ${normalizedType === 'pumpWater' ? 'máy bơm nước' : 'đèn'} thành công`,
+                data: {
+                    type: normalizedType,
+                    status: status,
+                    speed: normalizedType === 'pumpWater' ? (status === 'On' ? parseInt(speed) || 50 : 0) : undefined
+                }
             });
         } catch (error) {
-            console.error('Error controlling device:', error);
-            return res.status(500).json({
-                success: false,
-                message: 'Lỗi khi điều khiển thiết bị',
-                error: error.message
-            });
+            console.error('Lỗi khi điều khiển thiết bị:', error);
+            return res.status(500).json({ success: false, message: 'Đã xảy ra lỗi khi điều khiển thiết bị', error: error.message });
         }
     },
 

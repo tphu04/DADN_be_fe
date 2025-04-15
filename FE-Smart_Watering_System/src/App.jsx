@@ -25,6 +25,7 @@ import DeviceDetail from "./components/DeviceDetail/DeviceDetail";
 import DeviceSetting from "./pages/DeviceSetting/DeviceSetting";
 import ConfigDevice from "./pages/ConfigDevice/ConfigDevice";
 import Notification from "./pages/Notification/Notification";
+import ControlDevice from "./pages/ControlDevice/ControlDevice";
 
 // Admin
 import UserManagement from "./pages/Admin/UserManagement";
@@ -118,6 +119,32 @@ function App() {
               {adminUser ? <Navigate to="/admin/users" /> : (
                 <SidebarLayout>
                   <ConfigDevice />
+                </SidebarLayout>
+              )}
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/config/:deviceId"
+          element={
+            <ProtectedRoute>
+              {adminUser ? <Navigate to="/admin/users" /> : (
+                <SidebarLayout>
+                  <ConfigDevice />
+                </SidebarLayout>
+              )}
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/control"
+          element={
+            <ProtectedRoute>
+              {adminUser ? <Navigate to="/admin/users" /> : (
+                <SidebarLayout>
+                  <ControlDevice />
                 </SidebarLayout>
               )}
             </ProtectedRoute>

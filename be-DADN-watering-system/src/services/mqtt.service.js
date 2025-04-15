@@ -198,21 +198,55 @@ class MQTTService {
                 const device = feed.iotdevice;
 
                 // Phân tích giá trị và xử lý dữ liệu
-                let parsedValue = parseFloat(data);
-                if (isNaN(parsedValue)) {
-                    console.log(`⚠️ Không thể chuyển đổi dữ liệu "${data}" thành số`);
-                    return;
+                let parsedValue;
+                
+                // Kiểm tra nếu thiết bị là đèn và dữ liệu là 'On' hoặc 'Off'
+                if (device.deviceType === 'light' && (data === 'On' || data === 'Off')) {
+                    // Với đèn, chúng ta không cần chuyển đổi thành số
+                    parsedValue = data;
+                    console.log(`🔍 Dữ liệu đèn: "${data}" được giữ nguyên dạng chuỗi`);
+                } 
+                // Kiểm tra nếu thiết bị là máy bơm và dữ liệu có định dạng "On:50" hoặc "Off:0"
+                else if (device.deviceType === 'pump_water' && data.includes(':')) {
+                    // Phân tích dữ liệu định dạng "On:50" hoặc "Off:0"
+                    const parts = data.split(':');
+                    const status = parts[0]; // 'On' hoặc 'Off'
+                    const speed = parseInt(parts[1]) || 0; // Tốc độ (50, 100, ...)
+                    
+                    // Sử dụng tốc độ làm giá trị để lưu vào database
+                    parsedValue = speed;
+                    console.log(`🔍 Dữ liệu máy bơm: "${data}" được phân tích thành trạng thái=${status}, tốc độ=${speed}`);
+                } else {
+                    // Với các loại thiết bị khác, thử chuyển đổi thành số
+                    parsedValue = parseFloat(data);
+                    if (isNaN(parsedValue)) {
+                        console.log(`⚠️ Không thể chuyển đổi dữ liệu "${data}" thành số, sử dụng giá trị mặc định 0`);
+                        // Sử dụng giá trị mặc định thay vì thoát khỏi hàm
+                        parsedValue = 0;
+                    }
                 }
 
                 console.log(`📊 Giá trị đã phân tích: ${parsedValue}`);
 
                 // Cập nhật giá trị mới nhất cho feed
                 try {
+                    // Chuyển đổi giá trị phù hợp với schema Prisma
+                    let valueToUpdate;
+                    
+                    if (device.deviceType === 'light' && (parsedValue === 'On' || parsedValue === 'Off')) {
+                        // Đối với thiết bị đèn với giá trị chuỗi, chuyển đổi thành số
+                        valueToUpdate = parsedValue === 'On' ? 1 : 0;
+                        console.log(`🔄 Chuyển đổi giá trị đèn "${parsedValue}" thành số ${valueToUpdate} để lưu vào database`);
+                    } else {
+                        // Đối với các giá trị khác, giữ nguyên
+                        valueToUpdate = parsedValue;
+                    }
+                    
                     await prisma.feed.update({
                         where: { id: feed.id },
-                        data: { lastValue: parsedValue }
+                        data: { lastValue: valueToUpdate }
                     });
-                    console.log(`✅ Đã cập nhật giá trị mới cho feed ${feed.feedKey}: ${parsedValue}`);
+                    console.log(`✅ Đã cập nhật giá trị mới cho feed ${feed.feedKey}: ${valueToUpdate}`);
 
                     // Cập nhật trạng thái thiết bị nếu cần
                     await this._updateDeviceStatus(device.id, feed.feedKey, parsedValue);
@@ -220,11 +254,70 @@ class MQTTService {
                     console.error(`❌ Lỗi khi cập nhật giá trị feed: ${error.message}`);
                 }
 
-                // Kiểm tra ngưỡng và tạo thông báo nếu vượt ngưỡng
-                if (feed.maxValue !== null && parsedValue > feed.maxValue) {
-                    await notificationService.createThresholdNotification(device, feed, parsedValue, true);
-                } else if (feed.minValue !== null && parsedValue < feed.minValue) {
-                    await notificationService.createThresholdNotification(device, feed, parsedValue, false);
+                // Lấy cấu hình mới nhất để kiểm tra ngưỡng
+                try {
+                    // Lấy cấu hình mới nhất từ bảng configuration
+                    const latestConfig = await prisma.configuration.findFirst({
+                        orderBy: { updatedAt: 'desc' }
+                    });
+
+                    if (latestConfig) {
+                        // Xác định loại feed để lấy ngưỡng tương ứng
+                        const feedNameLower = feed.name.toLowerCase();
+                        const feedKeyLower = feed.feedKey.toLowerCase();
+                        
+                        // Xác định ngưỡng dựa vào loại cảm biến
+                        let maxThreshold = null;
+                        let minThreshold = null;
+                        
+                        // Kiểm tra cả tên feed và feedKey để xác định loại
+                        // Từ khóa tiếng Anh + tiếng Việt
+                        if (feedNameLower.includes('humid') || 
+                            feedNameLower.includes('humidity') || 
+                            feedKeyLower.includes('humid') || 
+                            feedKeyLower.includes('doam') || 
+                            feedKeyLower.includes('do-am')) {
+                            
+                            maxThreshold = latestConfig.humidityMax;
+                            minThreshold = latestConfig.humidityMin;
+                            console.log(`🌡️ Xác định loại: Độ ẩm không khí, min=${minThreshold}, max=${maxThreshold}`);
+                            
+                        } else if (feedNameLower.includes('soil') || 
+                                  feedNameLower.includes('moisture') || 
+                                  feedKeyLower.includes('soil') || 
+                                  feedKeyLower.includes('moisture') || 
+                                  feedKeyLower.includes('doamdat') || 
+                                  feedKeyLower.includes('dat')) {
+                                  
+                            maxThreshold = latestConfig.soilMoistureMax;
+                            minThreshold = latestConfig.soilMoistureMin;
+                            console.log(`🌡️ Xác định loại: Độ ẩm đất, min=${minThreshold}, max=${maxThreshold}`);
+                            
+                        } else if (feedNameLower.includes('temp') || 
+                                  feedNameLower.includes('temperature') || 
+                                  feedKeyLower.includes('temp') || 
+                                  feedKeyLower.includes('nhiet') || 
+                                  feedKeyLower.includes('nhietdo') || 
+                                  feedKeyLower.includes('nhiet-do')) {
+                                  
+                            maxThreshold = latestConfig.temperatureMax;
+                            minThreshold = latestConfig.temperatureMin;
+                            console.log(`🌡️ Xác định loại: Nhiệt độ, min=${minThreshold}, max=${maxThreshold}`);
+                        }
+                        
+                        console.log(`🔍 Kiểm tra ngưỡng cho ${feed.name} (${feed.feedKey}): Giá trị=${parsedValue}, Min=${minThreshold}, Max=${maxThreshold}`);
+                        
+                        // Kiểm tra và tạo thông báo nếu vượt ngưỡng
+                        if (maxThreshold !== null && parsedValue > maxThreshold) {
+                            console.log(`⚠️ Giá trị ${feed.name} (${parsedValue}) vượt ngưỡng tối đa (${maxThreshold})`);
+                            await notificationService.createThresholdNotification(device, feed, parsedValue, true);
+                        } else if (minThreshold !== null && parsedValue < minThreshold) {
+                            console.log(`⚠️ Giá trị ${feed.name} (${parsedValue}) dưới ngưỡng tối thiểu (${minThreshold})`);
+                            await notificationService.createThresholdNotification(device, feed, parsedValue, false);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`❌ Lỗi khi kiểm tra ngưỡng: ${error.message}`);
                 }
 
                 // Xử lý dữ liệu dựa trên loại thiết bị từ cơ sở dữ liệu
@@ -396,15 +489,21 @@ class MQTTService {
                     case 'light':
                         console.log(`📊 Đã lưu dữ liệu đèn: ${parsedValue}`);
                         // Với đèn, chúng ta lưu trạng thái On/Off
-                        // Mở rộng điều kiện kiểm tra để đèn có thể nhận nhiều loại giá trị khác nhau
-                        const lightStatus = parsedValue === 1 || 
+                        let lightStatus;
+                        
+                        // Kiểm tra nếu parsedValue là chuỗi 'On' hoặc 'Off'
+                        if (parsedValue === 'On' || parsedValue === 'Off') {
+                            lightStatus = parsedValue;
+                        } else {
+                            // Mở rộng điều kiện kiểm tra để đèn có thể nhận nhiều loại giá trị khác nhau
+                            lightStatus = parsedValue === 1 || 
                                           parsedValue === '1' || 
-                                          parsedValue === 'On' || 
                                           parsedValue === 'on' || 
                                           parsedValue === 'true' || 
                                           parsedValue === 'yes' || 
                                           parsedValue > 0
                                           ? 'On' : 'Off';
+                        }
                         
                         console.log(`🔍 Light value: "${data}" parsed to: ${parsedValue}, status: ${lightStatus}`);
                         
@@ -790,40 +889,71 @@ class MQTTService {
             // Lấy MQTT client dựa trên thông tin thiết bị
             const mqttConnection = await this.getMQTTClientForDevice(device);
             
-            if (!mqttConnection || !mqttConnection.isConnected) {
-                console.warn(`⚠️ MQTT chưa kết nối cho thiết bị ${deviceId}, sử dụng kết nối mặc định`);
-                // Sử dụng kết nối mặc định
-                const topic = `${this.username}/feeds/${feedKey}`;
-                console.log(`📤 Gửi dữ liệu đến ${topic}: ${value}`);
-                
-                this.client.publish(topic, value.toString(), { qos: 1 }, (err) => {
-                    if (err) {
-                        console.error(`❌ Lỗi gửi dữ liệu đến ${topic}:`, err);
-                        return false;
-                    } else {
-                        console.log(`✅ Đã gửi dữ liệu thành công đến ${topic}`);
-                        return true;
+            // Xử lý Promise để đảm bảo chờ kết quả trả về từ callback
+            return new Promise((resolve) => {
+                if (!mqttConnection || !mqttConnection.isConnected) {
+                    console.warn(`⚠️ MQTT chưa kết nối cho thiết bị ${deviceId}, sử dụng kết nối mặc định`);
+                    
+                    // Kiểm tra nếu client chưa kết nối
+                    if (!this.client || !this.client.connected) {
+                        console.error(`❌ MQTT client chưa kết nối, không thể gửi dữ liệu`);
+                        return resolve(false);
                     }
-                });
-                
-                return true;
-            }
-
-            // Tạo topic và gửi dữ liệu bằng kết nối của thiết bị
-            const topic = `${mqttConnection.username}/feeds/${feedKey}`;
-            console.log(`📤 Gửi dữ liệu đến ${topic}: ${value}`);
-            
-            mqttConnection.client.publish(topic, value.toString(), { qos: 1 }, (err) => {
-                if (err) {
-                    console.error(`❌ Lỗi gửi dữ liệu đến ${topic}:`, err);
-                    return false;
+                    
+                    // Sử dụng kết nối mặc định
+                    const topic = `${this.username}/feeds/${feedKey}`;
+                    console.log(`📤 Gửi dữ liệu đến ${topic}: ${value}`);
+                    
+                    this.client.publish(topic, value.toString(), { qos: 1 }, (err) => {
+                        if (err) {
+                            console.error(`❌ Lỗi gửi dữ liệu đến ${topic}:`, err);
+                            resolve(false);
+                        } else {
+                            console.log(`✅ Đã gửi dữ liệu thành công đến ${topic}`);
+                            resolve(true);
+                        }
+                    });
                 } else {
-                    console.log(`✅ Đã gửi dữ liệu thành công đến ${topic}`);
-                    return true;
+                    // Kiểm tra nếu client của thiết bị chưa kết nối
+                    if (!mqttConnection.client || !mqttConnection.client.connected) {
+                        console.error(`❌ MQTT client của thiết bị ${deviceId} chưa kết nối, thử sử dụng kết nối mặc định`);
+                        
+                        // Thử lại với kết nối mặc định
+                        if (!this.client || !this.client.connected) {
+                            console.error(`❌ MQTT client mặc định cũng chưa kết nối, không thể gửi dữ liệu`);
+                            return resolve(false);
+                        }
+                        
+                        const topic = `${this.username}/feeds/${feedKey}`;
+                        console.log(`📤 Gửi dữ liệu đến ${topic}: ${value}`);
+                        
+                        this.client.publish(topic, value.toString(), { qos: 1 }, (err) => {
+                            if (err) {
+                                console.error(`❌ Lỗi gửi dữ liệu đến ${topic}:`, err);
+                                resolve(false);
+                            } else {
+                                console.log(`✅ Đã gửi dữ liệu thành công đến ${topic}`);
+                                resolve(true);
+                            }
+                        });
+                        return;
+                    }
+
+                    // Tạo topic và gửi dữ liệu bằng kết nối của thiết bị
+                    const topic = `${mqttConnection.username}/feeds/${feedKey}`;
+                    console.log(`📤 Gửi dữ liệu đến ${topic}: ${value}`);
+                    
+                    mqttConnection.client.publish(topic, value.toString(), { qos: 1 }, (err) => {
+                        if (err) {
+                            console.error(`❌ Lỗi gửi dữ liệu đến ${topic}:`, err);
+                            resolve(false);
+                        } else {
+                            console.log(`✅ Đã gửi dữ liệu thành công đến ${topic}`);
+                            resolve(true);
+                        }
+                    });
                 }
             });
-            
-            return true;
         } catch (error) {
             console.error(`❌ Lỗi gửi dữ liệu MQTT cho thiết bị ${deviceId}:`, error);
             return false;
@@ -890,6 +1020,153 @@ class MQTTService {
             return true;
         } catch (error) {
             console.error(`❌ Lỗi ngắt kết nối thiết bị ${deviceId}:`, error);
+            return false;
+        }
+    }
+
+    // Phương thức để gửi lệnh điều khiển đến thiết bị
+    async publishToDevice(deviceId, deviceType, command) {
+        try {
+            console.log(`📤 Gửi lệnh điều khiển ${deviceType} đến thiết bị ${deviceId}:`, command);
+            
+            // Chuẩn hóa loại thiết bị
+            let normalizedDeviceType = deviceType;
+            
+            // Chuyển đổi các loại thiết bị tương đương
+            if (deviceType === 'pumpWater' || deviceType === 'pump_water') {
+                normalizedDeviceType = 'pump';
+            }
+            
+            console.log(`🔄 Loại thiết bị sau khi chuẩn hóa: ${normalizedDeviceType}`);
+            
+            // Lấy thông tin thiết bị từ database
+            const device = await prisma.iotdevice.findUnique({
+                where: { id: parseInt(deviceId) },
+                include: {
+                    feed: true // Lấy thông tin feed liên quan đến thiết bị
+                }
+            });
+
+            if (!device) {
+                console.warn(`⚠️ Không tìm thấy thiết bị ${deviceId}`);
+                return false;
+            }
+            
+            // Log thông tin thiết bị và feed để debug
+            console.log(`🔍 Thông tin thiết bị ${deviceId}:`, {
+                id: device.id,
+                deviceCode: device.deviceCode,
+                deviceType: device.deviceType,
+                feedCount: device.feed ? device.feed.length : 0
+            });
+            
+            if (device.feed && device.feed.length > 0) {
+                console.log(`🔍 Danh sách feed của thiết bị ${deviceId}:`, device.feed.map(f => ({ id: f.id, name: f.name, feedKey: f.feedKey })));
+            } else {
+                console.warn(`⚠️ Thiết bị ${deviceId} không có feed nào`);
+            }
+
+            // Tìm feed tương ứng với loại thiết bị
+            let targetFeed;
+            
+            // Nếu thiết bị chỉ có một feed, sử dụng feed đó
+            if (device.feed && device.feed.length === 1) {
+                targetFeed = device.feed[0];
+                console.log(`✅ Thiết bị ${deviceId} chỉ có một feed, sử dụng feed này: ${targetFeed.feedKey}`);
+            } 
+            // Nếu có nhiều feed, tìm feed phù hợp dựa trên loại thiết bị
+            else if (device.feed && device.feed.length > 1) {
+                // Tìm feed dựa trên loại thiết bị trong database
+                if (device.deviceType === 'pump_water' || device.deviceType.includes('pump')) {
+                    // Đối với máy bơm, tìm feed có chứa 'pump', 'maybom', 'bom', 'water'
+                    targetFeed = device.feed.find(f => 
+                        f.feedKey.toLowerCase().includes('pump') || 
+                        f.feedKey.toLowerCase().includes('maybom') || 
+                        f.feedKey.toLowerCase().includes('bom') || 
+                        f.feedKey.toLowerCase().includes('water')
+                    );
+                } else if (device.deviceType === 'light' || device.deviceType.includes('light')) {
+                    // Đối với đèn, tìm feed có chứa 'light', 'button', 'den', 'led'
+                    targetFeed = device.feed.find(f => 
+                        f.feedKey.toLowerCase().includes('light') || 
+                        f.feedKey.toLowerCase().includes('button') || 
+                        f.feedKey.toLowerCase().includes('den') || 
+                        f.feedKey.toLowerCase().includes('led')
+                    );
+                }
+                
+                // Nếu vẫn không tìm thấy, sử dụng feed đầu tiên
+                if (!targetFeed && device.feed.length > 0) {
+                    targetFeed = device.feed[0];
+                    console.log(`⚠️ Không tìm thấy feed phù hợp, sử dụng feed đầu tiên: ${targetFeed.feedKey}`);
+                }
+            }
+
+            if (!targetFeed) {
+                console.warn(`⚠️ Không tìm thấy feed cho thiết bị ${deviceId} và loại ${deviceType}`);
+                return false;
+            }
+
+            // Xác định feed key và giá trị dựa trên loại thiết bị
+            let feedKey = targetFeed.feedKey;
+            let value = '';
+            
+            if (deviceType === 'pump') {
+                // Chỉ gửi giá trị tốc độ (số) cho máy bơm
+                value = command.status === 'On' ? (command.speed || 0).toString() : '0';
+                console.log(`📤 Gửi giá trị tốc độ ${value} cho máy bơm`);
+            } else if (deviceType === 'light') {
+                // Gửi giá trị số cho đèn (1 = On, 0 = Off)
+                value = command.status === 'On' ? '1' : '0';
+                console.log(`📤 Gửi giá trị số ${value} cho đèn (1 = On, 0 = Off)`);
+            } else {
+                console.warn(`⚠️ Loại thiết bị không hợp lệ: ${deviceType}`);
+                return false;
+            }
+            
+            // Gửi lệnh qua MQTT
+            const result = await this.publishToMQTT(deviceId, feedKey, value);
+            
+            if (result) {
+                console.log(`✅ Đã gửi lệnh điều khiển ${deviceType} thành công đến thiết bị ${device.deviceCode}`);
+                
+                // Cập nhật trạng thái thiết bị trong database
+                await prisma.iotdevice.update({
+                    where: { id: parseInt(deviceId) },
+                    data: {
+                        status: command.status === 'On' ? 'On' : 'Off',
+                        isOnline: true,
+                        lastSeen: new Date(),
+                        lastSeenAt: new Date()
+                    }
+                });
+                
+                // Lưu thêm dữ liệu vào bảng tương ứng
+                if (deviceType === 'pump') {
+                    await prisma.pumpwaterdata.create({
+                        data: {
+                            status: command.status,
+                            pumpSpeed: command.status === 'On' ? (command.speed || 0) : 0,
+                            deviceId: parseInt(deviceId)
+                        }
+                    });
+                } else if (deviceType === 'light') {
+                    await prisma.lightdata.create({
+                        data: {
+                            status: command.status === 'On' ? 'On' : 'Off',
+                            intensity: command.status === 'On' ? 100 : 0,
+                            deviceId: parseInt(deviceId)
+                        }
+                    });
+                }
+                
+                return true;
+            } else {
+                console.error(`❌ Lỗi gửi lệnh điều khiển ${deviceType} đến thiết bị ${device.deviceCode}`);
+                return false;
+            }
+        } catch (error) {
+            console.error(`❌ Lỗi gửi lệnh điều khiển đến thiết bị ${deviceId}:`, error);
             return false;
         }
     }

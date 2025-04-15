@@ -4,6 +4,7 @@ const cors = require('cors');
 const routes = require('./routes');
 const iotDeviceService = require('./services/iotDeviceService');
 const mqttService = require('./services/mqtt.service');
+const scheduleService = require('./services/schedule.service');
 const http = require('http');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
@@ -123,6 +124,9 @@ async function startServer() {
 
         // Sửa MQTT service để phát sóng dữ liệu mới qua Socket.IO
         mqttService.setSocketIO(io);
+
+        // Khởi tạo dịch vụ lịch trình tự động
+        scheduleService.initScheduleService();
 
         // Khởi động HTTP server
         server.listen(PORT, () => {

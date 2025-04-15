@@ -4,7 +4,7 @@ import { IoSettingsOutline } from "react-icons/io5";
 import { GoHome } from "react-icons/go";
 import { IoLibraryOutline } from "react-icons/io5";
 import { FaUsersCog } from "react-icons/fa";
-import { MdDevices } from "react-icons/md";
+import { MdDevices, MdControlCamera } from "react-icons/md";
 
 // Icon
 import IconDashBoard from "../../assets/images/icon-dashboard.svg";
@@ -83,7 +83,14 @@ const Sidebar = () => {
                     alt="icon config"
                     className="w-[23px] h-[23px] object-cover"
                   />
-                  <div>Configure Server & Devices</div>
+                  <div>Configure Devices</div>
+                </NavLink>
+                <NavLink
+                  to="/control"
+                  className={({ isActive }) => getNavLinkClass(isActive)}
+                >
+                  <MdControlCamera className="text-xl" />
+                  <div>Control Devices</div>
                 </NavLink>
               </>
             )}

@@ -3,17 +3,17 @@ const router = express.Router();
 const deviceController = require('../controllers/deviceController');
 const { verifyToken } = require('../middleware/authMiddleware');
 
-// Áp dụng middleware xác thực cho tất cả các routes
+// Áp dụng middleware verifyToken cho tất cả các routes
 router.use(verifyToken);
 
-// Lấy danh sách thiết bị của người dùng hiện tại
-router.get('/', deviceController.getUserDevices);
+// Lấy danh sách thiết bị
+router.get('/', deviceController.getAllDevices);
+
+// Lấy thông tin chi tiết của một thiết bị
+router.get('/:id', deviceController.getDeviceById);
 
 // Tạo thiết bị mới
 router.post('/', deviceController.createDevice);
-
-// Lấy thông tin chi tiết thiết bị
-router.get('/:id', deviceController.getDeviceById);
 
 // Cập nhật thông tin thiết bị
 router.put('/:id', deviceController.updateDevice);

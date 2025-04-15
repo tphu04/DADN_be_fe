@@ -3,8 +3,10 @@ const authRoutes = require('./authRoutes');
 const userRoutes = require('./userRoutes');
 const sensorRoutes = require('./sensorRoutes');
 const deviceRoutes = require('./deviceRoutes');
+const deviceConfigRoutes = require('./deviceConfigRoutes');
 const notificationRoutes = require('./notificationRoutes');
 const adminRoutes = require('./adminRoutes');
+const scheduleRoutes = require('./scheduleRoutes');
 
 const routes = express.Router();
 
@@ -20,7 +22,9 @@ routes.use('/auth', authRoutes);
 routes.use('/users', userRoutes);
 routes.use('/sensors', sensorRoutes);
 routes.use('/devices', deviceRoutes);
+routes.use('/device-config', deviceConfigRoutes);
 routes.use('/notifications', notificationRoutes);
 routes.use('/admin', adminRoutes);
+routes.use('/schedules', scheduleRoutes);
 
 module.exports = routes;
