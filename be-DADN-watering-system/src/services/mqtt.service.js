@@ -19,7 +19,7 @@ class MQTTService {
         // Lấy thông tin kết nối từ biến môi trường
         this.username = process.env.MQTT_USERNAME;
         this.password = process.env.MQTT_API_KEY;
-        this.broker = process.env.MQTT_BROKER;
+        this.broker = process.env.MQTT_BROKER ;
 
         // Hiển thị thông tin kết nối (che password)
         console.log(`🔌 Đang kết nối tới MQTT broker mặc định: mqtt://${this.username}:***@${this.broker}`);
