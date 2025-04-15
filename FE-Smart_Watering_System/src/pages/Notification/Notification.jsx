@@ -129,7 +129,7 @@ const Notification = () => {
         { text: 'THRESHOLD', value: 'THRESHOLD' },
         { text: 'CONNECTION', value: 'CONNECTION' },
         { text: 'PUMP', value: 'PUMP' },
-        { text: 'LIGHT', value: 'USER_ACTION' },
+        { text: 'USER_ACTION', value: 'USER_ACTION' },
         { text: 'AUTOMATION', value: 'AUTOMATION' },
         { text: 'UPDATE', value: 'UPDATE' },
         { text: 'OTHER', value: 'OTHER' },
@@ -168,18 +168,48 @@ const Notification = () => {
       title: 'Giá trị',
       dataIndex: 'value',
       key: 'value',
-      width: 100,
+      width: 150,
       render: (value) => {
         if (!value) return <span>-</span>;
         
         // Try to parse JSON if it's a JSON string
         try {
           const jsonValue = JSON.parse(value);
-          // return <Tooltip title={<pre>{JSON.stringify(jsonValue, null, 2)}</pre>}>
-          //   <Button type="link" size="small">Chi tiết</Button>
-          // </Tooltip>;
-          return <span>{jsonValue}</span>;
+          
+          // Format the JSON string to display it nicely
+          if (typeof jsonValue === 'object') {
+            // Xử lý đặc biệt cho các trường hợp phổ biến
+            if ('status' in jsonValue) {
+              const status = typeof jsonValue.status === 'object' 
+                ? JSON.stringify(jsonValue.status) 
+                : String(jsonValue.status);
+              return <span>{status}</span>;
+            }
+            
+            if ('value' in jsonValue) {
+              const val = typeof jsonValue.value === 'object' 
+                ? JSON.stringify(jsonValue.value) 
+                : String(jsonValue.value);
+              return <span>{val}</span>;
+            }
+            
+            // Hiển thị các cặp key-value
+            const formatted = Object.entries(jsonValue)
+              .map(([key, val]) => {
+                const displayVal = typeof val === 'object' 
+                  ? JSON.stringify(val) 
+                  : String(val);
+                return `${key}: ${displayVal}`;
+              })
+              .join(', ');
+            
+            return <span>{formatted}</span>;
+          }
+          
+          // Với các giá trị không phải object
+          return <span>{String(jsonValue)}</span>;
         } catch (e) {
+          // If not a JSON string, display the value directly
           return <span>{value}</span>;
         }
       },

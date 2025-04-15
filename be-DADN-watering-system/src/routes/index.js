@@ -7,6 +7,7 @@ const deviceConfigRoutes = require('./deviceConfigRoutes');
 const notificationRoutes = require('./notificationRoutes');
 const adminRoutes = require('./adminRoutes');
 const scheduleRoutes = require('./scheduleRoutes');
+const automationRoutes = require('./automationRoutes');
 
 const routes = express.Router();
 
@@ -26,5 +27,6 @@ routes.use('/device-config', deviceConfigRoutes);
 routes.use('/notifications', notificationRoutes);
 routes.use('/admin', adminRoutes);
 routes.use('/schedules', scheduleRoutes);
+routes.use('/automation', automationRoutes);
 
 module.exports = routes;

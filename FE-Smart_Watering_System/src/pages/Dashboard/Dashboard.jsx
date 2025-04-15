@@ -4,6 +4,8 @@ import DeviceServices from "../../services/DeviceServices";
 import DeviceList from "../../components/DeviceList/DeviceList";
 import { useSensorData } from "../../context/SensorContext";
 import socketService from '../../services/socketService';
+import axios from "axios";
+import API_ENDPOINTS from "../../services/ApiEndpoints";
 
 // Icon
 import IconIncrease from "../../assets/images/icon-increase.svg";
@@ -11,12 +13,12 @@ import Icon3Dots from "../../assets/images/icon-3dots.svg";
 import IconChart from "../../assets/images/icon-chart.svg";
 import IconDecrease from "../../assets/images/icon-decrease.svg";
 
-// Ngưỡng tối đa cho mỗi loại sensor
-const THRESHOLD = {
-  SOIL_MOISTURE: 100, // Độ ẩm đất tối đa (%)
-  TEMPERATURE: 40,    // Nhiệt độ tối đa (°C)
-  AIR_HUMIDITY: 100,  // Độ ẩm không khí tối đa (%)
-  PUMP_SPEED: 100     // Tốc độ máy bơm tối đa (%)
+// Giá trị ngưỡng mặc định nếu không thể tải từ API
+const DEFAULT_THRESHOLD = {
+  SOIL_MOISTURE: { min: 20, max: 80 },
+  TEMPERATURE: { min: 20, max: 35 },
+  AIR_HUMIDITY: { min: 40, max: 80 },
+  PUMP_SPEED: { min: 0, max: 100 }
 };
 
 const Dashboard = () => {
@@ -35,6 +37,14 @@ const Dashboard = () => {
   const [devices, setDevices] = useState([]);
   const [isLoadingDevices, setIsLoadingDevices] = useState(true);
   const [showDebug, setShowDebug] = useState(true);
+  
+  // State mới để lưu trữ ngưỡng từ API
+  const [thresholds, setThresholds] = useState({
+    SOIL_MOISTURE: { min: DEFAULT_THRESHOLD.SOIL_MOISTURE.min, max: DEFAULT_THRESHOLD.SOIL_MOISTURE.max },
+    TEMPERATURE: { min: DEFAULT_THRESHOLD.TEMPERATURE.min, max: DEFAULT_THRESHOLD.TEMPERATURE.max },
+    AIR_HUMIDITY: { min: DEFAULT_THRESHOLD.AIR_HUMIDITY.min, max: DEFAULT_THRESHOLD.AIR_HUMIDITY.max },
+    PUMP_SPEED: { min: DEFAULT_THRESHOLD.PUMP_SPEED.min, max: DEFAULT_THRESHOLD.PUMP_SPEED.max },
+  });
 
   // Đăng ký lắng nghe sự kiện cập nhật từ socket
   useEffect(() => {
@@ -90,10 +100,57 @@ const Dashboard = () => {
         setIsLoadingDevices(false);
       }
     };
+    
+    // Lấy cấu hình ngưỡng
+    const fetchThresholds = async () => {
+      try {
+        console.log('Dashboard: Fetching threshold configs');
+        // Lấy cấu hình mới nhất từ API
+        const response = await axios.get(API_ENDPOINTS.DEVICES.GET_CONFIG('default'), {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+        
+        console.log('Dashboard: Threshold config response:', response.data);
+        
+        if (response.data && response.data.success && response.data.data) {
+          const configData = response.data.data;
+          
+          // Cập nhật state với dữ liệu từ API
+          setThresholds({
+            SOIL_MOISTURE: {
+              min: configData.soilMoisture?.min || DEFAULT_THRESHOLD.SOIL_MOISTURE.min,
+              max: configData.soilMoisture?.max || DEFAULT_THRESHOLD.SOIL_MOISTURE.max
+            },
+            TEMPERATURE: {
+              min: configData.temperature?.min || DEFAULT_THRESHOLD.TEMPERATURE.min,
+              max: configData.temperature?.max || DEFAULT_THRESHOLD.TEMPERATURE.max
+            },
+            AIR_HUMIDITY: {
+              min: configData.airHumidity?.min || DEFAULT_THRESHOLD.AIR_HUMIDITY.min,
+              max: configData.airHumidity?.max || DEFAULT_THRESHOLD.AIR_HUMIDITY.max
+            },
+            PUMP_SPEED: {
+              min: 0,  // Mặc định cho máy bơm
+              max: 100
+            }
+          });
+          
+          console.log('Dashboard: Updated thresholds from API:', thresholds);
+        } else {
+          console.warn('Dashboard: Invalid config data format, using defaults');
+        }
+      } catch (error) {
+        console.error('Dashboard: Error fetching threshold configs:', error);
+        console.log('Dashboard: Using default threshold values');
+      }
+    };
 
     // Thực hiện fetch dữ liệu
     fetchInitialData();
     fetchDevices();
+    fetchThresholds();
     
     // Thiết lập interval để cập nhật dữ liệu định kỳ nếu không có socket
     const intervalId = !socketConnected ? 
@@ -149,58 +206,18 @@ const Dashboard = () => {
   };
 
   // Kiểm tra xem giá trị có vượt ngưỡng không và trả về class tương ứng
-  const getThresholdClass = (value, threshold) => {
-    return value > threshold ? 'bg-red-200 border-2 border-red-500' : '';
+  const getThresholdClass = (value, thresholdMax) => {
+    return value > thresholdMax ? 'bg-red-200 border-2 border-red-500' : '';
   };
 
-  // Kiểm tra từng loại dữ liệu
-  const soilMoistureThresholdClass = getThresholdClass(sensorData.soilMoisture, THRESHOLD.SOIL_MOISTURE);
-  const temperatureThresholdClass = getThresholdClass(sensorData.temperature, THRESHOLD.TEMPERATURE);
-  const airHumidityThresholdClass = getThresholdClass(sensorData.airHumidity, THRESHOLD.AIR_HUMIDITY);
-  const pumpSpeedThresholdClass = getThresholdClass(sensorData.pumpWater?.speed || 0, THRESHOLD.PUMP_SPEED);
+  // Kiểm tra từng loại dữ liệu với ngưỡng tương ứng
+  const soilMoistureThresholdClass = getThresholdClass(sensorData.soilMoisture, thresholds.SOIL_MOISTURE.max);
+  const temperatureThresholdClass = getThresholdClass(sensorData.temperature, thresholds.TEMPERATURE.max);
+  const airHumidityThresholdClass = getThresholdClass(sensorData.airHumidity, thresholds.AIR_HUMIDITY.max);
+  const pumpSpeedThresholdClass = getThresholdClass(sensorData.pumpWater?.speed || 0, thresholds.PUMP_SPEED.max);
 
   return (
     <div className="flex flex-col space-y-6">
-      {/* Socket connection status */}
-      {/* <div className={`p-2 text-xs rounded ${socketConnected ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-        <span className="font-medium">WebSocket:</span> {socketConnected ? 'Connected' : 'Disconnected'} 
-        {!socketConnected && ' - Using periodic updates'}
-        <button 
-          onClick={() => setShowDebug(!showDebug)} 
-          className="ml-2 px-2 bg-blue-500 text-white rounded text-xs"
-        >
-          {showDebug ? 'Ẩn' : 'Hiện'} Debug
-        </button>
-      </div> */}
-      
-      {/* Debug info */}
-      {/* {showDebug && (
-        <div className="text-xs bg-blue-50 p-2 rounded mb-2">
-          <div>Soil: {sensorData.soilMoisture}%, Temp: {sensorData.temperature}°C, Humidity: {sensorData.airHumidity}%</div>
-          <div>Pump: {sensorData.pumpWater?.status} ({sensorData.pumpWater?.speed}%)</div>
-          <div>State: {sensorData.loading ? 'Loading' : 'Loaded'}</div>
-          <div className="flex space-x-2 mt-1">
-            <button 
-              onClick={forceSaveData}
-              className="px-2 py-1 bg-blue-500 text-white rounded"
-            >
-              Lưu Dữ Liệu
-            </button>
-            <button 
-              onClick={handleClearData}
-              className="px-2 py-1 bg-red-500 text-white rounded"
-            >
-              Xoá Dữ Liệu
-            </button>
-          </div>
-          <div className="mt-1">
-            <span className="font-semibold">Ngưỡng tối đa:</span> Đất: {THRESHOLD.SOIL_MOISTURE}%, 
-            Nhiệt độ: {THRESHOLD.TEMPERATURE}°C, 
-            Độ ẩm: {THRESHOLD.AIR_HUMIDITY}%, 
-            Bơm: {THRESHOLD.PUMP_SPEED}%
-          </div>
-        </div>
-      )} */}
       
       {/* Sensor Data cards - hiển thị cho tất cả người dùng đã đăng nhập */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -210,7 +227,7 @@ const Dashboard = () => {
             <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
               <div>
                 Soil Moisture
-                {sensorData.soilMoisture > THRESHOLD.SOIL_MOISTURE && 
+                {sensorData.soilMoisture > thresholds.SOIL_MOISTURE.max && 
                   <span className="ml-2 text-red-700 font-bold">⚠️ Quá ngưỡng!</span>
                 }
               </div>
@@ -242,7 +259,7 @@ const Dashboard = () => {
             <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
               <div>
                 Temperature
-                {sensorData.temperature > THRESHOLD.TEMPERATURE && 
+                {sensorData.temperature > thresholds.TEMPERATURE.max && 
                   <span className="ml-2 text-red-700 font-bold">⚠️ Quá ngưỡng!</span>
                 }
               </div>
@@ -274,7 +291,7 @@ const Dashboard = () => {
             <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
               <div>
                 Air Humidity
-                {sensorData.airHumidity > THRESHOLD.AIR_HUMIDITY && 
+                {sensorData.airHumidity > thresholds.AIR_HUMIDITY.max && 
                   <span className="ml-2 text-red-700 font-bold">⚠️ Quá ngưỡng!</span>
                 }
               </div>
@@ -306,7 +323,7 @@ const Dashboard = () => {
             <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
               <div>
                 Pump Water
-                {(sensorData.pumpWater?.speed || 0) > THRESHOLD.PUMP_SPEED && 
+                {(sensorData.pumpWater?.speed || 0) > thresholds.PUMP_SPEED.max && 
                   <span className="ml-2 text-red-700 font-bold">⚠️ Quá ngưỡng!</span>
                 }
               </div>

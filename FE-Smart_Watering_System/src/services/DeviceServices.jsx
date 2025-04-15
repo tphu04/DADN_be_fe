@@ -109,7 +109,13 @@ const DeviceServices = {
       console.log('Device detail response:', response.data);
       
       // Kiểm tra cấu trúc phản hồi
-      if (response.data && response.data.success && response.data.data) {
+      if (response.data && response.data.success && response.data.device) {
+        // Trả về thiết bị với trạng thái đã được lấy từ backend
+        return response.data.device;
+      }
+      
+      // Nếu không có cấu trúc device trong response, thử kiểm tra data
+      if (response.data && response.data.data) {
         return response.data.data;
       }
       
@@ -122,7 +128,7 @@ const DeviceServices = {
         deviceCode: `Device-${deviceId}`,
         description: 'Sample device (API error fallback)',
         deviceType: 'temperature_humidity',
-        status: 'active',
+        status: 'Off', // Trạng thái mặc định
         createdAt: new Date().toISOString()
       };
     }

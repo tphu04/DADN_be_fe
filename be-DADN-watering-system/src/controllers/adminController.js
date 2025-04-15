@@ -206,10 +206,8 @@ const createDevice = async (req, res) => {
         const newDevice = await prisma.iotdevice.create({
             data: {
                 deviceCode,
-                deviceName: deviceName || deviceCode,
                 deviceType,
-                status: 'Off',
-                isOnline: false
+                status: 'Off'
             }
         });
 
@@ -253,7 +251,6 @@ const updateDevice = async (req, res) => {
         const updatedDevice = await prisma.iotdevice.update({
             where: { id: parseInt(id) },
             data: {
-                deviceName: deviceName !== undefined ? deviceName : device.deviceName,
                 deviceType: deviceType !== undefined ? deviceType : device.deviceType
             }
         });

@@ -47,7 +47,7 @@ const API_ENDPOINTS = {
     CREATE: `${API_BASE_URL}/api/notifications`,
     UPDATE: (id) => `${API_BASE_URL}/api/notifications/${id}`,
     DELETE: (id) => `${API_BASE_URL}/api/notifications/${id}`,
-    MARK_READ: (id) => `${API_BASE_URL}/api/notifications/${id}/read`,
+    MARK_READ: (id) => `${API_BASE_URL}/api/notifications/mark-read/${id}`,
     GET_UNREAD: `${API_BASE_URL}/api/notifications/unread`,
   },
   SCHEDULES: {

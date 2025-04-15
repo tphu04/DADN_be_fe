@@ -17,8 +17,8 @@ async function debugMQTT() {
         
         // 2. Kiểm tra thiết bị trong database
         console.log('2. Thiết bị trong database:');
-        const devices = await prisma.ioTDevice.findMany({
-            include: { feeds: true }
+        const devices = await prisma.iotdevice.findMany({
+            include: { feed: true }
         });
         
         if (devices.length === 0) {
@@ -30,13 +30,15 @@ async function debugMQTT() {
                 console.log(`\nThiết bị ID ${device.id}:`);
                 console.log(`Mã thiết bị: ${device.deviceCode}`);
                 console.log(`Loại thiết bị: ${device.deviceType}`);
-                console.log(`Trạng thái: ${device.status}`);
-                console.log(`Trạng thái online: ${device.isOnline ? 'Online' : 'Offline'}`);
-                console.log(`Thời gian kết nối cuối: ${device.lastSeen || 'Chưa kết nối'}`);
                 
-                if (device.feeds && device.feeds.length > 0) {
-                    console.log(`Feeds (${device.feeds.length}):`);
-                    device.feeds.forEach((feed, index) => {
+                // Kiểm tra trạng thái online dựa trên lastSeenAt
+                const isOnline = device.lastSeenAt && (new Date().getTime() - new Date(device.lastSeenAt).getTime() < 5 * 60 * 1000);
+                console.log(`Trạng thái online: ${isOnline ? 'Online' : 'Offline'}`);
+                console.log(`Thời gian hoạt động cuối: ${device.lastSeenAt || 'Chưa kết nối'}`);
+                
+                if (device.feed && device.feed.length > 0) {
+                    console.log(`Feeds (${device.feed.length}):`);
+                    device.feed.forEach((feed, index) => {
                         console.log(`  ${index + 1}. ${feed.name} (${feed.feedKey}) - Giá trị cuối: ${feed.lastValue || 'Chưa có'}`);
                     });
                 } else {
@@ -50,7 +52,7 @@ async function debugMQTT() {
         console.log('3. Kiểm tra dữ liệu đã lưu:');
         
         // Kiểm tra dữ liệu nhiệt độ, độ ẩm
-        const tempHumidData = await prisma.temperatureHumidityData.findMany({
+        const tempHumidData = await prisma.temperaturehumiditydata.findMany({
             take: 5,
             orderBy: { readingTime: 'desc' }
         });
@@ -65,7 +67,7 @@ async function debugMQTT() {
         }
         
         // Kiểm tra dữ liệu độ ẩm đất
-        const soilData = await prisma.soilMoistureData.findMany({
+        const soilData = await prisma.soilmoisturedata.findMany({
             take: 5,
             orderBy: { readingTime: 'desc' }
         });
@@ -80,7 +82,7 @@ async function debugMQTT() {
         }
         
         // Kiểm tra dữ liệu máy bơm
-        const pumpData = await prisma.pumpWaterData.findMany({
+        const pumpData = await prisma.pumpwaterdata.findMany({
             take: 5,
             orderBy: { readingTime: 'desc' }
         });
@@ -128,8 +130,8 @@ async function debugMQTT() {
             
             // Đăng ký theo feeds của thiết bị
             devices.forEach(device => {
-                if (device.feeds && device.feeds.length > 0) {
-                    device.feeds.forEach(feed => {
+                if (device.feed && device.feed.length > 0) {
+                    device.feed.forEach(feed => {
                         topics.push(`${username}/feeds/${feed.feedKey}`);
                     });
                 }

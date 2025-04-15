@@ -251,8 +251,8 @@ const DeviceManagement = () => {
       dataIndex: 'status',
       key: 'status',
       render: (_, record) => (
-        <Tag color={record && record.isOnline ? 'green' : 'red'}>
-          {record && record.isOnline ? 'Online' : 'Offline'}
+        <Tag color={isDeviceOnline(record) ? 'green' : 'red'}>
+          {isDeviceOnline(record) ? 'Online' : 'Offline'}
         </Tag>
       )
     },
@@ -285,6 +285,21 @@ const DeviceManagement = () => {
   // Kiểm tra key duy nhất cho mỗi record trước khi render
   const getDeviceKey = (device) => {
     return device && device.id ? `device-${device.id}` : `device-${Math.random()}`;
+  };
+
+  // Kiểm tra xem thiết bị có trực tuyến không dựa trên dữ liệu gần nhất
+  const isDeviceOnline = (device) => {
+    if (!device) return false;
+    
+    // Kiểm tra thời gian dữ liệu gần nhất
+    const lastDataTime = device.lastDataTime ? new Date(device.lastDataTime) : null;
+    if (!lastDataTime) return false;
+    
+    // Thiết bị được coi là trực tuyến nếu có dữ liệu trong vòng 5 phút
+    const fiveMinutesAgo = new Date();
+    fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
+    
+    return lastDataTime > fiveMinutesAgo;
   };
 
   return (

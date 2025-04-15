@@ -5,6 +5,7 @@ const routes = require('./routes');
 const iotDeviceService = require('./services/iotDeviceService');
 const mqttService = require('./services/mqtt.service');
 const scheduleService = require('./services/schedule.service');
+const automationService = require('./services/automation.service');
 const http = require('http');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
@@ -124,9 +125,17 @@ async function startServer() {
 
         // Sửa MQTT service để phát sóng dữ liệu mới qua Socket.IO
         mqttService.setSocketIO(io);
+        
+        // Thiết lập Socket.IO cho automation service
+        automationService.setSocketIO(io);
 
         // Khởi tạo dịch vụ lịch trình tự động
         scheduleService.initScheduleService();
+        
+        // Bật dịch vụ tự động hóa
+        console.log('🤖 Khởi tạo dịch vụ tự động hóa...');
+        const automationStatus = automationService.getStatus();
+        console.log(`🤖 Trạng thái tự động hóa: ${automationStatus.enabled ? 'Đã bật' : 'Đã tắt'}`);
 
         // Khởi động HTTP server
         server.listen(PORT, () => {

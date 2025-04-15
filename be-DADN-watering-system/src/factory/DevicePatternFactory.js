@@ -51,10 +51,7 @@ class TemperatureHumidityDeviceFactory extends DeviceFactory {
                 data: {
                     deviceCode: deviceInfo.deviceCode,
                     deviceType: deviceInfo.deviceType,
-                    status: deviceInfo.status,
                     description: deviceInfo.description || '',
-                    isOnline: false,
-                    lastSeen: new Date(),
                     feed: {
                         create: feed.map(f => ({
                             name: f.name,
@@ -110,10 +107,7 @@ class SoilMoistureDeviceFactory extends DeviceFactory {
                 data: {
                     deviceCode: deviceInfo.deviceCode,
                     deviceType: deviceInfo.deviceType,
-                    status: deviceInfo.status,
                     description: deviceInfo.description || '',
-                    isOnline: false,
-                    lastSeen: new Date(),
                     feed: {
                         create: feed.map(f => ({
                             name: f.name,
@@ -169,10 +163,7 @@ class PumpWaterDeviceFactory extends DeviceFactory {
                 data: {
                     deviceCode: deviceInfo.deviceCode,
                     deviceType: deviceInfo.deviceType,
-                    status: deviceInfo.status,
                     description: deviceInfo.description || '',
-                    isOnline: false,
-                    lastSeen: new Date(),
                     feed: {
                         create: feed.map(f => ({
                             name: f.name,
@@ -228,10 +219,7 @@ class LightDeviceFactory extends DeviceFactory {
                 data: {
                     deviceCode: deviceInfo.deviceCode,
                     deviceType: deviceInfo.deviceType,
-                    status: deviceInfo.status,
                     description: deviceInfo.description || '',
-                    isOnline: false,
-                    lastSeen: new Date(),
                     feed: {
                         create: feed.map(f => ({
                             name: f.name,

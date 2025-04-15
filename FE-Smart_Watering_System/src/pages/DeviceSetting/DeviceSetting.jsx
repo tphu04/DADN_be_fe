@@ -493,14 +493,7 @@ const DeviceSetting = () => {
             <TextArea rows={4} placeholder="Nhập mô tả về thiết bị (tùy chọn)" />
           </Form.Item>
 
-          {editingDevice && (
-            <Form.Item name="status" label="Trạng thái">
-              <Select>
-                <Option value="On">Bật</Option>
-                <Option value="Off">Tắt</Option>
-              </Select>
-            </Form.Item>
-          )}
+          
           
           {/* Phần chỉnh sửa feeds - hiển thị khi edit thiết bị */}
           {editingDevice && editingDevice.feed && editingDevice.feed.length > 0 && (
@@ -539,24 +532,7 @@ const DeviceSetting = () => {
                             </Form.Item>
                           </Col>
                         </Row>
-                        <Row gutter={16}>
-                          <Col span={11}>
-                            <Form.Item
-                              label="Giá trị nhỏ nhất"
-                              name={[field.name, 'minValue']}
-                            >
-                              <Input type="number" placeholder="Giá trị nhỏ nhất" />
-                            </Form.Item>
-                          </Col>
-                          <Col span={11}>
-                            <Form.Item
-                              label="Giá trị lớn nhất"
-                              name={[field.name, 'maxValue']}
-                            >
-                              <Input type="number" placeholder="Giá trị lớn nhất" />
-                            </Form.Item>
-                          </Col>
-                        </Row>
+                        
                         {/* Hidden field để lưu id của feed */}
                         <Form.Item
                           name={[field.name, 'id']}

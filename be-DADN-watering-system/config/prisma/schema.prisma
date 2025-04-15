@@ -47,12 +47,8 @@ model iotdevice {
   id                      Int                       @id @default(autoincrement())
   deviceCode              String                    
   deviceType              iotdevice_deviceType
-  status                  iotdevice_status
   description             String?
   createdAt               DateTime                  @default(now())
-  isOnline                Boolean                   @default(false)
-  lastSeen                DateTime?
-  lastSeenAt              DateTime?
   feed                    feed[]
   lightdata               lightdata[]
   notification            notification[]

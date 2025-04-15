@@ -22,6 +22,59 @@ const stringifyDaysArray = (daysArray) => {
   }
 };
 
+// Kiểm tra thiết bị có online không dựa trên dữ liệu gần nhất
+const isDeviceOnline = async (device) => {
+  if (!device) return false;
+  
+  // Thời gian 5 phút trước
+  const fiveMinutesAgo = new Date();
+  fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
+  
+  // Kiểm tra dựa trên loại thiết bị
+  try {
+    let latestData = null;
+    
+    switch (device.deviceType) {
+      case 'pump_water':
+        latestData = await prisma.pumpwaterdata.findFirst({
+          where: { deviceId: device.id },
+          orderBy: { readingTime: 'desc' }
+        });
+        break;
+        
+      case 'light':
+        latestData = await prisma.lightdata.findFirst({
+          where: { deviceId: device.id },
+          orderBy: { readingTime: 'desc' }
+        });
+        break;
+        
+      case 'temperature_humidity':
+        latestData = await prisma.temperaturehumiditydata.findFirst({
+          where: { deviceId: device.id },
+          orderBy: { readingTime: 'desc' }
+        });
+        break;
+        
+      case 'soil_moisture':
+        latestData = await prisma.soilmoisturedata.findFirst({
+          where: { deviceId: device.id },
+          orderBy: { readingTime: 'desc' }
+        });
+        break;
+    }
+    
+    // Nếu không có dữ liệu hoặc dữ liệu quá cũ, coi như thiết bị offline
+    if (!latestData || !latestData.readingTime) return false;
+    
+    // Thiết bị được coi là online nếu có dữ liệu trong vòng 5 phút
+    return new Date(latestData.readingTime) > fiveMinutesAgo;
+  } catch (error) {
+    console.error(`Lỗi khi kiểm tra trạng thái online của thiết bị ${device.id}:`, error);
+    return false;
+  }
+};
+
 // Lấy tất cả lịch trình của người dùng
 exports.getAllSchedules = async (req, res) => {
   try {
@@ -37,8 +90,7 @@ exports.getAllSchedules = async (req, res) => {
           select: {
             id: true,
             deviceCode: true,
-            deviceType: true,
-            isOnline: true
+            deviceType: true
           }
         }
       },
@@ -84,8 +136,7 @@ exports.getScheduleById = async (req, res) => {
           select: {
             id: true,
             deviceCode: true,
-            deviceType: true,
-            isOnline: true
+            deviceType: true
           }
         }
       }
@@ -562,9 +613,20 @@ exports.executeSchedule = async (scheduleId) => {
       return;
     }
     
-    if (!schedule.device.isOnline) {
-      console.log(`Thiết bị ${schedule.device.deviceCode} (ID: ${schedule.deviceId}) không trực tuyến`);
-      return;
+    // Kiểm tra thiết bị có online không
+    if (!await isDeviceOnline(schedule.device)) {
+      await prisma.notification.create({
+        data: {
+          message: `Không thể thực thi lịch trình tưới: Thiết bị ${schedule.device.deviceCode} đang offline`,
+          type: 'warning',
+          source: 'system',
+          deviceId: schedule.deviceId
+        }
+      });
+      return {
+        success: false,
+        message: 'Thiết bị đang offline'
+      };
     }
     
     console.log(`Đang thực thi lịch trình ${scheduleId} cho thiết bị ${schedule.device.deviceCode}`);
@@ -639,7 +701,8 @@ exports.turnOffBySchedule = async (scheduleId) => {
       return;
     }
     
-    if (!schedule.device.isOnline) {
+    // Kiểm tra thiết bị có online không
+    if (!await isDeviceOnline(schedule.device)) {
       console.log(`Thiết bị ${schedule.device.deviceCode} (ID: ${schedule.deviceId}) không trực tuyến`);
       return;
     }
