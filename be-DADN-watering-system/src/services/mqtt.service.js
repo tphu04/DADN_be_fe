@@ -17,9 +17,9 @@ class MQTTService {
         this.io = null; // Biến để lưu trữ đối tượng Socket.IO
 
         // Lấy thông tin kết nối từ biến môi trường
-        this.username = process.env.MQTT_USERNAME || 'leduccuongks0601';
-        this.password = process.env.MQTT_API_KEY || 'aio_SNIo23qcDoXgGUptXfEwQk73o40p';
-        this.broker = process.env.MQTT_BROKER || 'io.adafruit.com';
+        this.username = process.env.MQTT_USERNAME;
+        this.password = process.env.MQTT_API_KEY;
+        this.broker = process.env.MQTT_BROKER;
 
         // Hiển thị thông tin kết nối (che password)
         console.log(`🔌 Đang kết nối tới MQTT broker mặc định: mqtt://${this.username}:***@${this.broker}`);
