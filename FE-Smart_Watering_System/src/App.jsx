@@ -26,6 +26,8 @@ import DeviceSetting from "./pages/DeviceSetting/DeviceSetting";
 import ConfigDevice from "./pages/ConfigDevice/ConfigDevice";
 import Notification from "./pages/Notification/Notification";
 import ControlDevice from "./pages/ControlDevice/ControlDevice";
+import Report from "./pages/Report/Report";
+import ProfileSettings from "./pages/ProfileSettings/ProfileSettings";
 
 // Admin
 import UserManagement from "./pages/Admin/UserManagement";
@@ -147,6 +149,30 @@ function App() {
                   <ControlDevice />
                 </SidebarLayout>
               )}
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/report"
+          element={
+            <ProtectedRoute>
+              {adminUser ? <Navigate to="/admin/users" /> : (
+                <SidebarLayout>
+                  <Report />
+                </SidebarLayout>
+              )}
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <SidebarLayout>
+                <ProfileSettings />
+              </SidebarLayout>
             </ProtectedRoute>
           }
         />

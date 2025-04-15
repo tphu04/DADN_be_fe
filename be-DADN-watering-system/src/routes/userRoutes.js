@@ -7,13 +7,16 @@ const {
   getAllSystemUsers,
   createUser,
   updateUser,
-  deleteUser
+  deleteUser,
+  updateUserProfile
 } = require('../controllers/userController');
 
 const router = express.Router();
 
 // Protected routes - Cần xác thực token
 router.get('/profile', authenticateToken, getCurrentUser);
+// Thêm route cho người dùng cập nhật thông tin cá nhân
+router.put('/profile', authenticateToken, updateUserProfile);
 
 // Admin routes - Cần quyền admin
 router.get('/', authenticateToken, authorizeAdmin, getAllUsers);

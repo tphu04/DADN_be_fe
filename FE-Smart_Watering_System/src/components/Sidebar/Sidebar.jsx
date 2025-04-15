@@ -5,6 +5,7 @@ import { GoHome } from "react-icons/go";
 import { IoLibraryOutline } from "react-icons/io5";
 import { FaUsersCog } from "react-icons/fa";
 import { MdDevices, MdControlCamera } from "react-icons/md";
+import { IoBarChartOutline } from "react-icons/io5";
 
 // Icon
 import IconDashBoard from "../../assets/images/icon-dashboard.svg";
@@ -91,6 +92,13 @@ const Sidebar = () => {
                 >
                   <MdControlCamera className="text-xl" />
                   <div>Control Devices</div>
+                </NavLink>
+                <NavLink
+                  to="/report"
+                  className={({ isActive }) => getNavLinkClass(isActive)}
+                >
+                  <IoBarChartOutline className="text-xl" />
+                  <div>Biểu đồ & Báo cáo</div>
                 </NavLink>
               </>
             )}

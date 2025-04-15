@@ -376,19 +376,6 @@ const DeviceManagement = () => {
             </Select>
           </Form.Item>
           
-          <Form.Item
-            name="userId"
-            label="Assign to User"
-            rules={[{ required: true, message: 'Please assign the device to a user' }]}
-          >
-            <Select placeholder="Select user">
-              {Array.isArray(users) && users.map(user => (
-                user ? <Option key={`user-option-${user.id}`} value={user.id}>
-                  {user.username || 'Unknown'} {user.email ? `(${user.email})` : ''}
-                </Option> : null
-              ))}
-            </Select>
-          </Form.Item>
         </Form>
       </Modal>
     </div>

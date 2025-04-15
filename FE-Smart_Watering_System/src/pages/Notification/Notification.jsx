@@ -10,22 +10,22 @@ const { Text } = Typography;
 const Notification = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [pagination, setPagination] = useState({
-    current: 1,
-    pageSize: 10,
-    total: 0
-  });
   const [filters, setFilters] = useState(null);
 
   useEffect(() => {
-    fetchNotifications(1);
+    fetchNotifications();
   }, []);
 
-  const fetchNotifications = async (page = 1, pageSize = 10, filters = null) => {
+  const fetchNotifications = async (filters = null) => {
     try {
       setLoading(true);
+      
+      // Log the filter being applied for debugging
+      console.log("Applying filters:", filters);
+      
+      // Lấy tất cả thông báo không phân trang
       const response = await axios.get(
-        `${API_ENDPOINTS.NOTIFICATIONS.GET_ALL}?page=${page}&limit=${pageSize}`,
+        `${API_ENDPOINTS.NOTIFICATIONS.GET_ALL}?limit=1000`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -36,23 +36,28 @@ const Notification = () => {
       if (response.data && response.data.success) {
         let filteredData = response.data.data;
         
+        console.log("Data before filtering:", filteredData);
+        
         // Áp dụng bộ lọc ở phía client nếu có
         if (filters && filters.type && filters.type.length > 0) {
           filteredData = filteredData.filter(notification => {
-            if (!notification.type) return false;
+            // Log each notification's type for debugging
+            console.log("Notification type:", notification.type, "Filters:", filters.type);
             
-            return filters.type.some(filterValue => 
-              notification.type.toUpperCase().includes(filterValue.toUpperCase())
-            );
+            if (!notification.type) {
+              // Xử lý trường hợp đặc biệt cho "Khác"
+              return filters.type.includes('OTHER');
+            }
+            
+            // Trim whitespace and convert to uppercase for case-insensitive comparison
+            const normalizedType = notification.type.trim().toUpperCase();
+            return filters.type.some(filter => filter.toUpperCase() === normalizedType);
           });
         }
         
+        console.log("Data after filtering:", filteredData);
+        
         setNotifications(filteredData);
-        setPagination({
-          current: page,
-          pageSize: pageSize,
-          total: response.data.pagination?.total || 0
-        });
       } else {
         throw new Error(response.data?.message || "Không thể tải thông báo");
       }
@@ -67,7 +72,7 @@ const Notification = () => {
   const handleTableChange = (pagination, filters, sorter) => {
     console.log("Table changed:", { pagination, filters, sorter });
     setFilters(filters);
-    fetchNotifications(pagination.current, pagination.pageSize, filters);
+    fetchNotifications(filters);
   };
 
   // Get icon for notification type
@@ -121,27 +126,27 @@ const Notification = () => {
         </Tag>
       ),
       filters: [
-        { text: 'Cảnh báo ngưỡng', value: 'THRESHOLD' },
-        { text: 'Kết nối', value: 'CONNECTION' },
-        { text: 'Máy bơm', value: 'PUMP' },
-        { text: 'Đèn', value: 'USER_ACTION' },
-        { text: 'Tự động hóa', value: 'AUTOMATION' },
-        { text: 'Cập nhật', value: 'UPDATE' },
-        { text: 'Khác', value: 'OTHER' },
+        { text: 'THRESHOLD', value: 'THRESHOLD' },
+        { text: 'CONNECTION', value: 'CONNECTION' },
+        { text: 'PUMP', value: 'PUMP' },
+        { text: 'LIGHT', value: 'USER_ACTION' },
+        { text: 'AUTOMATION', value: 'AUTOMATION' },
+        { text: 'UPDATE', value: 'UPDATE' },
+        { text: 'OTHER', value: 'OTHER' },
       ],
       filteredValue: filters?.type || null,
       onFilter: (value, record) => {
         // Trường hợp đặc biệt cho 'Khác'
         if (value === 'OTHER') {
-          const standardTypes = ['THRESHOLD', 'CONNECTION', 'PUMP', 'USER_ACTION', 'AUTOMATION', 'UPDATE'];
-          return !record.type || !standardTypes.includes(record.type.toUpperCase());
+          return !record.type;
         }
         
         // Xử lý trường hợp type là null hoặc undefined
         if (!record.type) return false;
         
-        // Chuyển cả hai giá trị về chữ hoa và so sánh
-        return record.type.toUpperCase().includes(value.toUpperCase());
+        // Trim whitespace and convert to uppercase for case-insensitive comparison
+        const normalizedType = record.type.trim().toUpperCase();
+        return value.toUpperCase() === normalizedType;
       },
     },
     {
@@ -200,27 +205,20 @@ const Notification = () => {
         Thông báo của bạn
       </h1>
 
-      {loading && pagination.current === 1 ? (
+      {loading ? (
         <div className="flex justify-center my-10">
           <Spin size="large" />
         </div>
-      ) : notifications.length === 0 ? (
-        <Empty
-          description={filters && Object.keys(filters).some(key => filters[key]?.length) 
-            ? "Không tìm thấy thông báo phù hợp với bộ lọc" 
-            : "Không có thông báo nào"}
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-        />
       ) : (
         <div className="bg-white rounded-lg shadow-md overflow-x-auto">
           <Table
             columns={columns}
             dataSource={notifications}
             rowKey="id"
-            pagination={pagination}
+            pagination={false} // Tắt phân trang
             loading={loading}
             onChange={handleTableChange}
-            scroll={{ x: 800 }}
+            scroll={{ x: 800, y: 600 }} // Thêm scroll chiều dọc
             locale={{ 
               filterConfirm: 'Lọc',
               filterReset: 'Đặt lại',

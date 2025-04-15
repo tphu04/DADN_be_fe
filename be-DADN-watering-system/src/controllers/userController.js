@@ -142,6 +142,79 @@ const updateUserAccess = async (req, res) => {
   }
 };
 
+// Update current user profile
+const updateUserProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { fullname, email, phone, address, password } = req.body;
+    
+    console.log(`User ${userId} updating their own profile`);
+
+    // Ensure the user exists
+    const existingUser = await prisma.user.findUnique({
+      where: { id: Number(userId) }
+    });
+
+    if (!existingUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Check if new email is unique if provided
+    if (email && email !== existingUser.email) {
+      const existingEmail = await prisma.user.findUnique({
+        where: { email }
+      });
+
+      if (existingEmail) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email already exists'
+        });
+      }
+    }
+
+    // Prepare data for update
+    const updateData = {};
+    if (fullname) updateData.fullname = fullname;
+    if (email) updateData.email = email;
+    if (phone) updateData.phone = phone;
+    if (address) updateData.address = address;
+    if (password) updateData.password = password; // Remember to hash in a real app
+
+    // Update user
+    const updatedUser = await prisma.user.update({
+      where: { id: Number(userId) },
+      data: updateData
+    });
+
+    console.log(`User ${userId} updated their profile successfully`);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: {
+        id: updatedUser.id,
+        fullname: updatedUser.fullname,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        address: updatedUser.address,
+        createdAt: updatedUser.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error updating profile',
+      error: error.message
+    });
+  }
+};
+
 // Get current user profile
 const getCurrentUser = async (req, res) => {
   try {
@@ -580,5 +653,6 @@ module.exports = {
   getAllSystemUsers,
   createUser,
   updateUser,
-  deleteUser
+  deleteUser,
+  updateUserProfile
 };
