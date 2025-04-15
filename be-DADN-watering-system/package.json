@@ -1,8 +1,11 @@
 {
-  "name": "be-dadn-watering-system",
+  "name": "SmartWateringSystem",
   "version": "1.0.0",
   "description": "",
   "main": "src/server.js",
+  "engines": {
+    "node": "18.x"
+  },
   "directories": {
     "doc": "docs",
     "test": "tests"
