@@ -55,10 +55,10 @@ app.use((err, req, res, next) => {
 const path = require('path');
 
 // Serve static files từ React FE build
-app.use(express.static(path.join(__dirname, '../../fe/dist')));
+app.use(express.static(path.join(__dirname, '../../FE-Smart_Watering_System/dist')));
 
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../../fe/dist/index.html'));
+  res.sendFile(path.join(__dirname, '../../FE-Smart_Watering_System/dist/index.html'));
 });
 
 
