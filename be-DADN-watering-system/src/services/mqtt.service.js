@@ -1194,8 +1194,8 @@ class MQTTService {
             if (normalizedDeviceType === 'pump') {
                 // Tạo giá trị cho máy bơm
                 if (command.status === 'On') {
-                    // Sử dụng giá trị speed từ lệnh, giữ nguyên giá trị
-                    const speed = command.speed;
+                    // Sử dụng giá trị value từ lệnh, giữ nguyên giá trị
+                    const speed = command.value || 100;
                     value = `${speed}`;
                     console.log(`📤 Gửi giá trị "${value}" cho máy bơm - CHÍNH XÁC THEO LỆNH`);
                 } else {
@@ -1226,11 +1226,11 @@ class MQTTService {
                     await prisma.pumpwaterdata.create({
                         data: {
                             status: command.status,
-                            pumpSpeed: command.status === 'On' ? command.speed : 0,
+                            pumpSpeed: command.status === 'On' ? (command.value || 100) : 0,
                             deviceId: parseInt(deviceId)
                         }
                     });
-                        console.log(`✅ Đã lưu dữ liệu máy bơm vào database với tốc độ ${command.status === 'On' ? command.speed : 0}`);
+                        console.log(`✅ Đã lưu dữ liệu máy bơm vào database với tốc độ ${command.status === 'On' ? (command.value || 100) : 0}`);
                     } else if (normalizedDeviceType === 'light') {
                     await prisma.lightdata.create({
                         data: {
