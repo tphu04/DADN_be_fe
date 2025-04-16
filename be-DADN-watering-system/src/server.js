@@ -13,11 +13,24 @@ const jwt = require('jsonwebtoken');
 const app = express();
 
 // Cấu hình CORS chi tiết
+// Lấy danh sách origin từ biến môi trường hoặc mặc định
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',')
+  : ['http://localhost:3001', 'http://localhost:5173', 'http://127.0.0.1:5173', 'https://fesmartwater.onrender.com'];
+
+// Cấu hình CORS chi tiết
 app.use(cors({
-    origin: ['http://localhost:3001', 'http://localhost:5173', 'http://127.0.0.1:5173'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
+  origin: (origin, callback) => {
+    // Cho phép request không có origin (như curl) hoặc origin trong danh sách
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 
 app.use(express.json());
@@ -77,8 +90,9 @@ async function startServer() {
         // Tạo Socket.IO server
         io = new Server(server, {
             cors: {
-                origin: '*', // Đặt origin phù hợp với frontend của bạn
-                methods: ['GET', 'POST']
+                origin: allowedOrigins, // Đặt origin phù hợp với frontend của bạn
+                methods: ['GET', 'POST'],
+                credentials: true
             },
             pingTimeout: 60000, // 60 giây timeout
             pingInterval: 25000, // Kiểm tra kết nối mỗi 25 giây
