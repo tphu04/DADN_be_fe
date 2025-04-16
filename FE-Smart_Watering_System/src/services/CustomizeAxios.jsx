@@ -1,7 +1,9 @@
 import axios from "axios";
 
+const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
+
 const api = axios.create({
-  baseURL: "http://127.0.0.1:3000/api",
+  baseURL: API_URL,
 });
 
 // Add a request interceptor
