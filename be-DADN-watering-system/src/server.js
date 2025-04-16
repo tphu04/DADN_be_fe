@@ -14,11 +14,11 @@ const app = express();
 
 // Cấu hình CORS chi tiết
 // Lấy danh sách origin từ biến môi trường hoặc mặc định
-// const allowedOrigins = process.env.CORS_ORIGIN
-//   ? process.env.CORS_ORIGIN.split(',')
-//   : ['http://localhost:3001', 'http://localhost:5173', 'http://127.0.0.1:5173', 'https://fesmartwater.onrender.com'];
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',')
+  : ['http://localhost:3001', 'http://localhost:5173', 'http://127.0.0.1:5173', 'https://fesmartwater.onrender.com'];
 
-const allowedOrigins = ['http://localhost:3001', 'http://localhost:5173', 'http://127.0.0.1:5173', 'https://fesmartwater.onrender.com'];
+// const allowedOrigins = ['http://localhost:3001', 'http://localhost:5173', 'http://127.0.0.1:5173', 'https://fesmartwater.onrender.com'];
 
 // Cấu hình CORS chi tiết
 app.use(cors({
