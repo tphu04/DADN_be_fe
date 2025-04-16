@@ -56,6 +56,18 @@ app.use((req, res) => {
     res.status(404).json({ success: false, message: 'Route not found' });
 });
 
+const path = require('path');
+
+// Serve static files from Vite build
+app.use(express.static(path.join(__dirname, '../FE-Smart_Watering_System/dist')));
+
+// Catch-all to return index.html (SPA)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../FE-Smart_Watering_System/dist/index.html'));
+});
+
+
+
 const PORT = process.env.PORT || 3000;
 
 // Biến global để lưu trữ đối tượng Socket.IO

@@ -26,7 +26,8 @@
     "test:insert": "node test/insertdata.js",
     "test:mqttmess": "node test/testMQTTMessages.js",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d build"
+    "deploy": "gh-pages -d build",
+    "postinstall": "cd ../FE-Smart_Watering_System && npm install && npm run build"
   },
   "keywords": [],
   "author": "",
