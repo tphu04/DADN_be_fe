@@ -139,6 +139,8 @@ async function startServer() {
             });
         });
 
+        console.log('✅ allowedOrigins:', allowedOrigins);
+
         // Sửa MQTT service để phát sóng dữ liệu mới qua Socket.IO
         mqttService.setSocketIO(io);
         
