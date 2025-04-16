@@ -1,7 +1,9 @@
 import { io } from 'socket.io-client';
 
 // URL của WebSocket server
-const SOCKET_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000'; // Địa chỉ backend Node.js server
+// const SOCKET_URL = 'http://localhost:3000'; // Địa chỉ backend Node.js server
+
+const SOCKET_URL = process.env.REACT_APP_BACKEND_URL; // Địa chỉ backend Node.js server
 
 class SocketService {
   constructor() {
