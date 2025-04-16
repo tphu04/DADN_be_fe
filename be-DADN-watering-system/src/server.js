@@ -15,8 +15,16 @@ const app = express();
 // Cấu hình CORS chi tiết
 // Lấy danh sách origin từ biến môi trường hoặc mặc định
 const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',')
-  : ['http://localhost:3001', 'http://localhost:5173', 'http://127.0.0.1:5173', 'https://fesmartwater.onrender.com'];
+  ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
+  : [
+      'http://localhost:3001',
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'https://fe-smartwater.onrender.com',
+      'https://smartwater-awpc.onrender.com'
+    ];
+
+console.log('✅ CORS Allowed Origins:', allowedOrigins);
 
 // const allowedOrigins = ['http://localhost:3001', 'http://localhost:5173', 'http://127.0.0.1:5173', 'https://fesmartwater.onrender.com'];
 
@@ -27,7 +35,8 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+        console.error(`❌ Blocked by CORS: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
