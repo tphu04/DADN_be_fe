@@ -51,10 +51,6 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Internal server error' });
 });
 
-// Handle 404
-app.use((req, res) => {
-    res.status(404).json({ success: false, message: 'Route not found' });
-});
 
 const path = require('path');
 
@@ -64,6 +60,14 @@ app.use(express.static(path.join(__dirname, '../../fe/dist')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../../fe/dist/index.html'));
 });
+
+
+// Handle 404
+app.use((req, res) => {
+    res.status(404).json({ success: false, message: 'Route not found' });
+});
+
+
 
 
 
