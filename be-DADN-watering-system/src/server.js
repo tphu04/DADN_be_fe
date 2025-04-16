@@ -58,13 +58,13 @@ app.use((req, res) => {
 
 const path = require('path');
 
-// Serve static files from Vite build
-app.use(express.static(path.join(__dirname, '../FE-Smart_Watering_System/dist')));
+// Serve static files từ React FE build
+app.use(express.static(path.join(__dirname, '../../fe/dist')));
 
-// Catch-all to return index.html (SPA)
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../FE-Smart_Watering_System/dist/index.html'));
+  res.sendFile(path.join(__dirname, '../../fe/dist/index.html'));
 });
+
 
 
 
