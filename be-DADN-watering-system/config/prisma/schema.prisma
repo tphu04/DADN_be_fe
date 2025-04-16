@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      = "mysql://root:123456@localhost/watering-system"
+  url      = env("DATABASE_URL")
 }
 
 model admin {
