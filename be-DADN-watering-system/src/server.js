@@ -13,38 +13,25 @@ const jwt = require('jsonwebtoken');
 const app = express();
 
 // Cấu hình CORS chi tiết
-// Lấy danh sách origin từ biến môi trường hoặc mặc định
-const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
-  : [
-      'http://localhost:3001',
-      'http://localhost:5173',
-      'http://127.0.0.1:5173',
-      'https://fe-smartwater.onrender.com',
-      'https://smartwater-awpc.onrender.com'
-    ];
+const allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000'];
+const corsOptions = {
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+};
 
-console.log('✅ CORS Allowed Origins:', allowedOrigins);
+app.use(cors(corsOptions));
 
-// const allowedOrigins = ['http://localhost:3001', 'http://localhost:5173', 'http://127.0.0.1:5173', 'https://fesmartwater.onrender.com'];
+// Log tất cả requests để debug
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    next();
+});
 
-// Cấu hình CORS chi tiết
-app.use(cors({
-  origin: (origin, callback) => {
-    // Cho phép request không có origin (như curl) hoặc origin trong danh sách
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-        console.error(`❌ Blocked by CORS: ${origin}`);
-        callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-}));
-
-app.use(express.json());
+// Body parser middleware với giới hạn tăng lên
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Routes
 app.use('/api', routes);
@@ -56,30 +43,27 @@ app.get('/test', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Global error handler:', err);
+    res.status(500).json({
+        success: false,
+        message: err.message || 'Internal Server Error'
+    });
 });
-
 
 const path = require('path');
 
 // Serve static files từ React FE build
 app.use(express.static(path.join(__dirname, '../../FE-Smart_Watering_System/dist')));
 
+// Handle client-side routing
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../../FE-Smart_Watering_System/dist/index.html'));
+    res.sendFile(path.join(__dirname, '../../FE-Smart_Watering_System/dist/index.html'));
 });
-
 
 // Handle 404
 app.use((req, res) => {
     res.status(404).json({ success: false, message: 'Route not found' });
 });
-
-
-
-
-
 
 const PORT = process.env.PORT || 3000;
 
@@ -102,87 +86,56 @@ async function startServer() {
     try {
         // Đợi MQTT kết nối thành công trước
         console.log('Đang đợi kết nối MQTT...');
-        await mqttService.waitForConnection(20000); // Đợi tối đa 20 giây
+        await mqttService.waitForConnection(20000);
 
-        // Sau khi MQTT đã kết nối, khởi tạo thiết bị
-        console.log('Bắt đầu khởi tạo thiết bị');
-        await iotDeviceService.initializeDevices();
-
-        // Đăng ký nhận dữ liệu từ tất cả feeds
-        await mqttService.subscribeToAllFeeds();
-
-        // Tạo HTTP server từ Express app
+        // Khởi tạo HTTP server
         const server = http.createServer(app);
 
-        // Tạo Socket.IO server
+        // Cấu hình Socket.IO với CORS
         io = new Server(server, {
             cors: {
-                origin: allowedOrigins, // Đặt origin phù hợp với frontend của bạn
+                origin: allowedOrigins,
                 methods: ['GET', 'POST'],
-                credentials: true
+                credentials: true,
+                allowedHeaders: ['Content-Type', 'Authorization']
             },
-            pingTimeout: 60000, // 60 giây timeout
-            pingInterval: 25000, // Kiểm tra kết nối mỗi 25 giây
-            transports: ['websocket', 'polling'], // Ưu tiên websocket
-            allowEIO3: true, // Cho phép Engine.IO phiên bản 3
-            maxHttpBufferSize: 1e8 // Tăng kích thước buffer cho socket
+            pingTimeout: 60000,
+            pingInterval: 25000,
+            transports: ['websocket', 'polling'],
+            allowEIO3: true
         });
 
         // Xử lý kết nối Socket.IO
         io.on('connection', (socket) => {
             console.log('Client kết nối: ' + socket.id);
-            
-            // Cho phép tất cả kết nối mà không cần xác thực
-            console.log(`Anonymous connection accepted: ${socket.id}`);
-            socket.emit('connected', { status: 'success', anonymous: true });
-            
-            // Xử lý sự kiện join-user-room (dùng khi client muốn join room một cách rõ ràng)
-            socket.on('join-user-room', (data) => {
-                if (data && data.userId) {
-                    const userRoom = `user-${data.userId}`;
-                    socket.join(userRoom);
-                    console.log(`Socket ${socket.id} manually joined room: ${userRoom}`);
-                    // Gửi xác nhận cho client
-                    socket.emit('room_joined', { room: userRoom });
-                } else {
-                    console.warn(`Socket ${socket.id} attempted to join a room without userId`);
-                }
+
+            socket.emit('connected', {
+                status: 'success',
+                socketId: socket.id,
+                serverTime: new Date().toISOString()
             });
 
-            // Thêm heartbeat để kiểm tra kết nối
-            socket.on('ping', () => {
-                socket.emit('pong');
+            socket.on('error', (error) => {
+                console.error(`Socket error for ${socket.id}:`, error);
             });
 
             socket.on('disconnect', (reason) => {
                 console.log(`Client ngắt kết nối: ${socket.id}, Reason: ${reason}`);
             });
-
-            // Xử lý sự kiện lỗi
-            socket.on('error', (error) => {
-                console.error(`Socket error for ${socket.id}:`, error);
-            });
         });
 
-        console.log('✅ allowedOrigins:', allowedOrigins);
-
-        // Sửa MQTT service để phát sóng dữ liệu mới qua Socket.IO
+        // Khởi tạo các services
+        console.log('Bắt đầu khởi tạo thiết bị');
+        await iotDeviceService.initializeDevices();
+        await mqttService.subscribeToAllFeeds();
         mqttService.setSocketIO(io);
-        
-        // Thiết lập Socket.IO cho automation service
         automationService.setSocketIO(io);
-
-        // Khởi tạo dịch vụ lịch trình tự động
         scheduleService.initScheduleService();
-        
-        // Bật dịch vụ tự động hóa
-        console.log('🤖 Khởi tạo dịch vụ tự động hóa...');
-        const automationStatus = automationService.getStatus();
-        console.log(`🤖 Trạng thái tự động hóa: ${automationStatus.enabled ? 'Đã bật' : 'Đã tắt'}`);
 
-        // Khởi động HTTP server
+        // Khởi động server
         server.listen(PORT, () => {
             console.log(`Server đang chạy trên cổng ${PORT}`);
+            console.log(`CORS được cấu hình cho các origin:`, allowedOrigins);
         });
     } catch (error) {
         console.error('Lỗi khởi động server:', error);
@@ -190,4 +143,5 @@ async function startServer() {
     }
 }
 
+// Start the server
 startServer();

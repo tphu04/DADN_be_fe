@@ -287,15 +287,15 @@ const deviceController = {
             // Tạo configuration nếu có userId và thiết bị vừa được tạo mới
             if (deviceData.userId && !existingDevice) {
                 // Kiểm tra xem đã có cấu hình tương tự chưa
-                const humidityMax = deviceData.humidityMax || 100;
-                const humidityMin = deviceData.humidityMin || 0;
-                const temperatureMax = deviceData.temperatureMax || 100;
-                const temperatureMin = deviceData.temperatureMin || 0;
-                const soilMoistureMax = deviceData.soilMoistureMax || 100;
-                const soilMoistureMin = deviceData.soilMoistureMin || 0;
+                const humidityMax = deviceData.humidityMax ;
+                const humidityMin = deviceData.humidityMin ;
+                const temperatureMax = deviceData.temperatureMax ;
+                const temperatureMin = deviceData.temperatureMin ;
+                const soilMoistureMax = deviceData.soilMoistureMax ;
+                const soilMoistureMin = deviceData.soilMoistureMin ;
                 const lightOn = deviceData.lightOn || false;
                 const pumpWaterOn = deviceData.pumpWaterOn || false;
-                const pumpWaterSpeed = deviceData.pumpWaterSpeed || 0;
+                const pumpWaterSpeed = deviceData.pumpWaterSpeed ;
                 
                 const existingConfig = await prisma.configuration.findFirst({
                     where: {
@@ -365,7 +365,7 @@ const deviceController = {
             const { description, feeds } = req.body;
             
             // Kiểm tra thiết bị có tồn tại không
-            // Lưu ý: Đã loại bỏ kiểm tra configuration vì không có mối quan hệ này trong model
+            // Lưu ý: Đã loại bỏ kiểm tra configuration vì không có mối quan hệ nào trong model
             const existingDevice = await prisma.iotdevice.findFirst({
                 where: {
                     id: deviceId
@@ -526,9 +526,11 @@ const deviceController = {
                     }
                     
                     // 4. Xóa configuration liên quan
-                    await prisma.configuration.deleteMany({
-                        where: { deviceId }
-                    });
+                    // Note: Configuration model does not have deviceId field
+                    // This code was causing an error and has been removed
+                    // await prisma.configuration.deleteMany({
+                    //     where: { deviceId }
+                    // });
                     
                     // 5. Cuối cùng xóa thiết bị
                     await prisma.iotdevice.delete({
@@ -863,7 +865,7 @@ const deviceController = {
                             orderBy: { readingTime: 'desc' }
                         });
                         status = lastData?.status || 'Off';
-                        additionalData = { pumpSpeed: lastData?.pumpSpeed || 0 };
+                        additionalData = { pumpSpeed: lastData?.pumpSpeed  };
                         break;
                     case 'light':
                         lastData = await prisma.lightdata.findFirst({
@@ -871,7 +873,7 @@ const deviceController = {
                             orderBy: { readingTime: 'desc' }
                         });
                         status = lastData?.status || 'Off';
-                        additionalData = { intensity: lastData?.intensity || 0 };
+                        additionalData = { intensity: lastData?.intensity  };
                         break;
                 }
             } catch (err) {

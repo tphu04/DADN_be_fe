@@ -59,7 +59,7 @@ exports.getLatestSensorData = async (req, res) => {
             temperature: 0,
             airHumidity: 0,
             timestamp: new Date(),
-            inactive: true
+            Off: true
           });
         }
       }
@@ -99,7 +99,7 @@ exports.getLatestSensorData = async (req, res) => {
             deviceType: 'soil_moisture',
             soilMoisture: 0,
             timestamp: new Date(),
-            inactive: true
+            Off: true
           });
         }
       }
@@ -128,7 +128,7 @@ exports.getLatestSensorData = async (req, res) => {
               deviceId: device.id,
               deviceName: device.deviceCode,
               deviceType: 'pump_water',
-              status: 'Inactive',
+              status: 'Off',
               pumpSpeed: 0,
               timestamp: new Date()
             });
@@ -139,10 +139,10 @@ exports.getLatestSensorData = async (req, res) => {
             deviceId: device.id,
             deviceName: device.deviceCode,
             deviceType: 'pump_water',
-            status: 'Inactive',
+            status: 'Off',
             pumpSpeed: 0,
             timestamp: new Date(),
-            inactive: true
+            Off: true
           });
         }
       }

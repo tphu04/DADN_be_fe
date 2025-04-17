@@ -1,6 +1,9 @@
 // API base URL
 // const API_BASE_URL = 'http://localhost:3000';
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+// Ghi log thông tin URL để kiểm tra
+console.log('API Base URL được sử dụng:', API_BASE_URL);
 
 // API Endpoints
 const API_ENDPOINTS = {
@@ -25,7 +28,7 @@ const API_ENDPOINTS = {
     ADD: `${API_BASE_URL}/api/devices`,
     REMOVE: (id) => `${API_BASE_URL}/api/devices/${id}`,
     UPDATE: (id) => `${API_BASE_URL}/api/devices/${id}`,
-    COMMAND: (id) => `${API_BASE_URL}/api/devices/${id}/command`,
+    COMMAND: (id) => `${API_BASE_URL}/api/devices/${id}/control`, // Sửa từ command thành control
     GET_TEMPERATURE: (id) => `${API_BASE_URL}/api/devices/${id}/temperature`,
     GET_SOIL_MOISTURE: (id) => `${API_BASE_URL}/api/devices/${id}/soil`,
     GET_PUMP_WATER: (id) => `${API_BASE_URL}/api/devices/${id}/pump`,
@@ -59,6 +62,7 @@ const API_ENDPOINTS = {
     UPDATE: (id) => `${API_BASE_URL}/api/schedules/${id}`,
     DELETE: (id) => `${API_BASE_URL}/api/schedules/${id}`,
     TOGGLE: (id) => `${API_BASE_URL}/api/schedules/${id}/toggle`,
+    SET_ENABLED: (id, enabled) => `${API_BASE_URL}/api/schedules/${id}/set-enabled?enabled=${enabled}`,
   },
   ADMIN: {
     DASHBOARD: `${API_BASE_URL}/api/admin/dashboard`,
@@ -69,4 +73,4 @@ const API_ENDPOINTS = {
 };
 
 export { API_ENDPOINTS };
-export default API_ENDPOINTS; 
+export default API_ENDPOINTS;

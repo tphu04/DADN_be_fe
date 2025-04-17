@@ -54,7 +54,7 @@ const Report = () => {
     
     try {
       // Lấy tất cả thiết bị của người dùng
-      const devices = await DeviceServices.getUserDevices();
+      const devices = await DeviceServices.getAllDevices();
       
       let temperatureData = [];
       let humidityData = [];
@@ -63,12 +63,12 @@ const Report = () => {
       // Lấy dữ liệu từ tất cả các thiết bị
       for(const device of devices) {
         // Lấy dữ liệu nhiệt độ/độ ẩm không khí
-        const tempHumidData = await DeviceServices.getTemperatureHumidityData(device.id);
-        if (tempHumidData && tempHumidData.length > 0) {
-          // Thêm thông tin thiết bị vào dữ liệu
-          const tempWithDeviceInfo = tempHumidData.map(item => ({
-            ...item,
-            deviceName: `${device.deviceCode} (${device.deviceType.replace('_', ' ')})`
+        if (device.deviceType === 'temperature_humidity') {
+          const tempHumidData = await DeviceServices.getTemperatureHumidityData(device.id);
+          const deviceTempHumidData = Array.isArray(tempHumidData) ? tempHumidData : (tempHumidData.data || []);
+          const tempWithDeviceInfo = deviceTempHumidData.map(data => ({
+            ...data,
+            deviceName: device.deviceName || device.deviceCode
           }));
           
           temperatureData = [...temperatureData, ...tempWithDeviceInfo];
@@ -76,12 +76,12 @@ const Report = () => {
         }
         
         // Lấy dữ liệu độ ẩm đất
-        const soilData = await DeviceServices.getSoilMoistureData(device.id);
-        if (soilData && soilData.length > 0) {
-          // Thêm thông tin thiết bị vào dữ liệu
-          const soilWithDeviceInfo = soilData.map(item => ({
-            ...item,
-            deviceName: `${device.deviceCode} (${device.deviceType.replace('_', ' ')})`
+        if (device.deviceType === 'soil_moisture') {
+          const soilData = await DeviceServices.getSoilMoistureData(device.id);
+          const deviceSoilData = Array.isArray(soilData) ? soilData : (soilData.data || []);
+          const soilWithDeviceInfo = deviceSoilData.map(data => ({
+            ...data,
+            deviceName: device.deviceName || device.deviceCode
           }));
           
           soilMoistureData = [...soilMoistureData, ...soilWithDeviceInfo];
@@ -111,10 +111,10 @@ const Report = () => {
     if (!dateRange || !dateRange[0] || !dateRange[1] || !dataArray || !dataArray.length) {
       return dataArray;
     }
-    
+
     const startDate = dateRange[0].startOf('day');
     const endDate = dateRange[1].endOf('day');
-    
+
     return dataArray.filter(item => {
       const itemDate = dayjs(item.readingTime);
       return itemDate.isAfter(startDate) && itemDate.isBefore(endDate);
@@ -173,11 +173,11 @@ const Report = () => {
       },
       tooltip: {
         callbacks: {
-          label: function(context) {
+          label: function (context) {
             const dataIndex = context.dataIndex;
             const datasetIndex = context.datasetIndex;
             let dataArray;
-            
+
             if (datasetIndex === 0) {
               dataArray = applyDateFilter(sensorData.temperature);
             } else if (datasetIndex === 1) {
@@ -185,10 +185,10 @@ const Report = () => {
             } else {
               dataArray = applyDateFilter(sensorData.soilMoisture);
             }
-            
+
             const deviceName = dataArray[dataIndex]?.deviceName || '';
             let label = context.dataset.label || '';
-            
+
             if (label) {
               label += ': ';
             }
@@ -211,7 +211,7 @@ const Report = () => {
         min: 0,
         max: 100,
         ticks: {
-          callback: function(value) {
+          callback: function (value) {
             return value;
           }
         }
@@ -225,26 +225,26 @@ const Report = () => {
   };
 
   const hasData = () => {
-    return sensorData.temperature.length > 0 || 
-           sensorData.humidity.length > 0 || 
-           sensorData.soilMoisture.length > 0;
+    return sensorData.temperature.length > 0 ||
+      sensorData.humidity.length > 0 ||
+      sensorData.soilMoisture.length > 0;
   };
 
   return (
     <div className="p-6">
       <TitleAnt level={2} className="mb-6">Báo cáo dữ liệu cảm biến</TitleAnt>
-      
+
       <Card className="mb-6">
         <div className="flex flex-wrap gap-4 items-center">
           <div className="flex-grow">
             <label className="block mb-1 font-medium">Khoảng thời gian:</label>
-            <RangePicker 
+            <RangePicker
               value={dateRange}
               onChange={handleDateRangeChange}
               className="w-full md:w-auto"
             />
           </div>
-          
+
           <div className="flex items-end">
             <Button type="primary" onClick={refreshData}>
               Làm mới dữ liệu
@@ -252,7 +252,7 @@ const Report = () => {
           </div>
         </div>
       </Card>
-      
+
       {loading ? (
         <div className="flex justify-center py-20">
           <Spin size="large" />
@@ -270,4 +270,4 @@ const Report = () => {
   );
 };
 
-export default Report; 
+export default Report;

@@ -12,7 +12,7 @@ const DeviceList = () => {
     const fetchDevices = async () => {
       try {
         setLoading(true);
-        const result = await DeviceServices.getUserDevices();
+        const result = await DeviceServices.getDevices();
         
         // Kiểm tra cấu trúc dữ liệu
         console.log('DeviceList received user devices:', result);
@@ -70,7 +70,7 @@ const DeviceList = () => {
     switch (status.toLowerCase()) {
       case 'active':
         return 'bg-green-500';
-      case 'inactive':
+      case 'Off':
         return 'bg-gray-500';
       case 'maintenance':
         return 'bg-yellow-500';

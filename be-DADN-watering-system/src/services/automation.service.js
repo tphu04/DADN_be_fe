@@ -152,11 +152,11 @@ class AutomationService {
         console.log(`🌡️ Độ ẩm đất: ${sensorData.soilMoisture}%, Ngưỡng: ${thresholds.soilMoisture.min}% - ${thresholds.soilMoisture.max}%`);
         
         if (sensorData.soilMoisture < thresholds.soilMoisture.min) {
-          console.log(`🏜️ Độ ẩm đất ${sensorData.soilMoisture}% < ngưỡng tối thiểu ${thresholds.soilMoisture.min}% -> Bật máy bơm`);
+          console.log(`🏜️ Độ ẩm đất ${sensorData.soilMoisture}% < ngưỡng tối thiểu ${thresholds.soilMoisture.min}% -> Bật đèn`);
           shouldTurnOnPump = true;
           await this._createThresholdNotification(device, 'soilMoisture', 'below', sensorData.soilMoisture, thresholds.soilMoisture.min);
         } else if (sensorData.soilMoisture > thresholds.soilMoisture.max) {
-          console.log(`💧 Độ ẩm đất ${sensorData.soilMoisture}% > ngưỡng tối đa ${thresholds.soilMoisture.max}% -> Bật đèn`);
+          console.log(`💧 Độ ẩm đất ${sensorData.soilMoisture}% > ngưỡng tối đa ${thresholds.soilMoisture.max}% -> Bật máy bơm`);
           shouldTurnOnLight = true;
           await this._createThresholdNotification(device, 'soilMoisture', 'above', sensorData.soilMoisture, thresholds.soilMoisture.max);
         } else {
@@ -501,7 +501,7 @@ class AutomationService {
       // Tạo thông báo
       try {
         const actionType = deviceType === 'pump' ? 'PUMP' : 'LIGHT';
-        const message = `Đã ${turnOn ? 'bật' : 'tắt'} ${deviceType === 'pump' ? 'máy bơm' : 'đèn'} do ${turnOn ? 'vượt' : 'trở về'} ngưỡng cảm biến`;
+        const message = `Đã ${turnOn ? 'bật' : 'tắt'} ${deviceType === 'pump' ? 'máy bơm' : 'đèn'} ${deviceToControl.deviceCode} do cảm biến ${device.deviceCode} ${turnOn ? 'vượt' : 'trở về'} ngưỡng`;
         
         // Lấy userId từ thiết bị điều khiển hoặc thiết bị cảm biến
         let userId = deviceToControl.userId || device.userId;
@@ -515,7 +515,7 @@ class AutomationService {
           deviceId: device.id,
           type: 'AUTOMATION',
           message,
-          source: device.deviceCode,
+          source: deviceToControl.deviceCode,
           isRead: false,
           value: JSON.stringify(command)
         });

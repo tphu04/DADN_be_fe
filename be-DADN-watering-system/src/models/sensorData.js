@@ -141,7 +141,7 @@ const SensorData = {
       return await prisma.pumpwaterdata.create({
         data: {
           status: data.status,
-          pumpSpeed: data.pumpSpeed || 0,
+          pumpSpeed: data.pumpSpeed ,
           deviceId: parseInt(data.deviceId)
         }
       });

@@ -104,7 +104,7 @@ const UserManagement = () => {
       console.log('Full API response:', response);
       
       if (response.success) {
-        console.log("Received users count:", response.data?.length || 0);
+        console.log("Received users count:", response.data?.length );
         setUsers(response.data || []);
         
         if (!response.data || response.data.length === 0) {

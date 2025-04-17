@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import DeviceServices from '../../services/DeviceServices';
+import DeviceServices, { samplePumpData, sampleSoilMoistureData } from '../../services/DeviceServices';
 import { useSensorData } from '../../context/SensorContext';
 
 const DeviceDetail = () => {
@@ -86,7 +86,34 @@ const DeviceDetail = () => {
               const soilResponse = await DeviceServices.getSoilMoistureData(deviceId);
               console.log('DeviceDetail: Soil moisture data response:', soilResponse);
 
-              const soilData = soilResponse.data || soilResponse;
+              // Kiểm tra cấu trúc dữ liệu
+              let soilData = soilResponse;
+              if (soilResponse && soilResponse.data) {
+                soilData = soilResponse.data;
+              }
+              
+              // Đảm bảo soilData là một mảng
+              if (!Array.isArray(soilData)) {
+                console.log('DeviceDetail: Converting soil data to array:', soilData);
+                
+                // Check if the data is an HTML
+                if (typeof soilData === 'string' && 
+                    (soilData.toLowerCase().includes('<!doctype') || 
+                     soilData.toLowerCase().includes('<html'))) {
+                  console.error('WARNING: Server returned HTML instead of JSON for soil data!');
+                  console.log('Using empty array and sample data instead');
+                  soilData = sampleSoilMoistureData || [];
+                } else {
+                  // Nếu không phải mảng, chuyển đổi nó thành mảng
+                  if (soilData) {
+                    soilData = [soilData];
+                  } else {
+                    soilData = [];
+                  }
+                }
+              }
+              
+              console.log('DeviceDetail: Final soil data:', soilData);
               setSensorData({
                 soilMoisture: soilData
               });
@@ -101,7 +128,34 @@ const DeviceDetail = () => {
               const pumpResponse = await DeviceServices.getPumpWaterData(deviceId);
               console.log('DeviceDetail: Pump water data response:', pumpResponse);
 
-              const pumpData = pumpResponse.data || pumpResponse;
+              // Kiểm tra cấu trúc dữ liệu
+              let pumpData = pumpResponse;
+              if (pumpResponse && pumpResponse.data) {
+                pumpData = pumpResponse.data;
+              }
+              
+              // Đảm bảo pumpData là một mảng
+              if (!Array.isArray(pumpData)) {
+                console.log('DeviceDetail: Converting pump data to array:', pumpData);
+                
+                // Check if the data is an HTML
+                if (typeof pumpData === 'string' && 
+                    (pumpData.toLowerCase().includes('<!doctype') || 
+                     pumpData.toLowerCase().includes('<html'))) {
+                  console.error('WARNING: Server returned HTML instead of JSON for pump data!');
+                  console.log('Using empty array and sample data instead');
+                  pumpData = samplePumpData || [];
+                } else {
+                  // Nếu không phải mảng, chuyển đổi nó thành mảng
+                  if (pumpData) {
+                    pumpData = [pumpData];
+                  } else {
+                    pumpData = [];
+                  }
+                }
+              }
+              
+              console.log('DeviceDetail: Final pump data:', pumpData);
               setSensorData({
                 pumpData: pumpData
               });
@@ -164,7 +218,6 @@ const DeviceDetail = () => {
       case 'active':
         return 'bg-green-500 text-white';
       case 'Off':
-      case 'inactive':
         return 'bg-red-500 text-white';
       case 'maintenance':
         return 'bg-yellow-500 text-white';
@@ -228,7 +281,7 @@ const DeviceDetail = () => {
                 <div className="flex justify-between items-center">
                   <h4 className="font-bold">Temperature</h4>
                   <span className="text-3xl font-bold text-blue-600">
-                    {(device.status === 'On' || device.status === 'active') && sensorData?.temperatureHumidity?.[0]?.temperature !== undefined ?
+                    {sensorData?.temperatureHumidity && Array.isArray(sensorData.temperatureHumidity) && sensorData.temperatureHumidity[0]?.temperature !== undefined ?
                       `${sensorData.temperatureHumidity[0].temperature}°C` : '0°C'}
                   </span>
                 </div>
@@ -238,7 +291,7 @@ const DeviceDetail = () => {
                 <div className="flex justify-between items-center">
                   <h4 className="font-bold">Humidity</h4>
                   <span className="text-3xl font-bold text-green-600">
-                    {(device.status === 'On' || device.status === 'active') && sensorData?.temperatureHumidity?.[0]?.humidity !== undefined ?
+                    {sensorData?.temperatureHumidity && Array.isArray(sensorData.temperatureHumidity) && sensorData.temperatureHumidity[0]?.humidity !== undefined ?
                       `${sensorData.temperatureHumidity[0].humidity}%` : '0%'}
                   </span>
                 </div>
@@ -251,7 +304,7 @@ const DeviceDetail = () => {
               <div className="flex justify-between items-center">
                 <h4 className="font-bold">Soil Moisture</h4>
                 <span className="text-3xl font-bold text-green-600">
-                  {(device.status === 'On' || device.status === 'active') && sensorData?.soilMoisture?.[0]?.moistureValue !== undefined ?
+                  {sensorData?.soilMoisture && Array.isArray(sensorData.soilMoisture) && sensorData.soilMoisture[0]?.moistureValue !== undefined ?
                     `${sensorData.soilMoisture[0].moistureValue}%` : '0%'}
                 </span>
               </div>
@@ -264,8 +317,8 @@ const DeviceDetail = () => {
                 <div className="flex justify-between items-center">
                   <h4 className="font-bold">Pump Status</h4>
                   <span className="text-3xl font-bold text-blue-600">
-                    {(device.status === 'On' || device.status === 'active') && sensorData?.pumpData?.[0]?.status ?
-                      sensorData.pumpData[0].status : 'Inactive'}
+                    {sensorData?.pumpData && Array.isArray(sensorData.pumpData) && sensorData.pumpData[0]?.status ?
+                      sensorData.pumpData[0].status : 'Off'}
                   </span>
                 </div>
               </div>
@@ -274,7 +327,7 @@ const DeviceDetail = () => {
                 <div className="flex justify-between items-center">
                   <h4 className="font-bold">Pump Speed</h4>
                   <span className="text-3xl font-bold text-green-600">
-                    {(device.status === 'On' || device.status === 'active') && sensorData?.pumpData?.[0]?.pumpSpeed !== undefined ?
+                    {sensorData?.pumpData && Array.isArray(sensorData.pumpData) && sensorData.pumpData[0]?.pumpSpeed !== undefined ?
                       `${sensorData.pumpData[0].pumpSpeed}%` : '0%'}
                   </span>
                 </div>
@@ -288,18 +341,8 @@ const DeviceDetail = () => {
                 <div className="flex justify-between items-center">
                   <h4 className="font-bold">Light Status</h4>
                   <span className="text-3xl font-bold text-blue-600">
-                    {(device.status === 'On' || device.status === 'active') && sensorData?.lightData?.[0]?.status ?
-                      sensorData.lightData[0].status : 'Inactive'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-bold">Light Intensity</h4>
-                  <span className="text-3xl font-bold text-yellow-500">
-                    {(device.status === 'On' || device.status === 'active') && sensorData?.lightData?.[0]?.brightness !== undefined ?
-                      `${sensorData.lightData[0].brightness}%` : '0%'}
+                    {sensorData?.lightData && Array.isArray(sensorData.lightData) && sensorData.lightData[0]?.status ?
+                      sensorData.lightData[0].status : 'Off'}
                   </span>
                 </div>
               </div>
@@ -327,13 +370,11 @@ const DeviceDetail = () => {
                     <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Brightness
-                    </th>
+                    
                   </tr>
                 </thead>
                 <tbody>
-                  {sensorData.lightData && sensorData.lightData.length > 0 ? (
+                  {sensorData.lightData && Array.isArray(sensorData.lightData) && sensorData.lightData.length > 0 ? (
                     sensorData.lightData.slice(0, 5).map((data, index) => {
                       console.log('DeviceDetail: Rendering light data row:', data);
                       return (
@@ -344,16 +385,14 @@ const DeviceDetail = () => {
                           <td className="py-2 px-4 border-b border-gray-200">
                             {data.status || 'N/A'}
                           </td>
-                          <td className="py-2 px-4 border-b border-gray-200">
-                            {data.brightness !== undefined ? `${data.brightness}%` : 'N/A'}
-                          </td>
+                          
                         </tr>
                       );
                     })
                   ) : (
                     <tr>
                       <td colSpan="3" className="py-4 px-4 text-center text-gray-500">
-                        No light operation history available. Device may be inactive or data hasn't been received yet.
+                        No light operation history available. Device may be Off or data hasn't been received yet.
                       </td>
                     </tr>
                   )}
@@ -388,7 +427,7 @@ const DeviceDetail = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {sensorData.temperatureHumidity && sensorData.temperatureHumidity.length > 0 ? (
+                  {sensorData.temperatureHumidity && Array.isArray(sensorData.temperatureHumidity) && sensorData.temperatureHumidity.length > 0 ? (
                     sensorData.temperatureHumidity.slice(0, 5).map((data, index) => (
                       <tr key={index}>
                         <td className="py-2 px-4 border-b border-gray-200">
@@ -405,7 +444,7 @@ const DeviceDetail = () => {
                   ) : (
                     <tr>
                       <td colSpan="3" className="py-4 px-4 text-center text-gray-500">
-                        No temperature & humidity data available. Device may be inactive or data hasn't been received yet.
+                        No temperature & humidity data available. Device may be Off or data hasn't been received yet.
                       </td>
                     </tr>
                   )}
@@ -420,6 +459,10 @@ const DeviceDetail = () => {
       {sensorData && device.deviceType === 'soil_moisture' && (
         <div className="mt-6">
           <h3 className="text-xl font-bold mb-4">Sensor Data</h3>
+          {console.log('DeviceDetail: Rendering soil moisture section, sensorData:', sensorData)}
+          {console.log('DeviceDetail: Soil moisture data in sensorData:', sensorData.soilMoisture)}
+          {console.log('DeviceDetail: Soil moisture is array:', Array.isArray(sensorData.soilMoisture))}
+          {console.log('DeviceDetail: Soil moisture length:', sensorData.soilMoisture?.length)}
 
           <div className="bg-white rounded-lg shadow-md p-6">
             <h4 className="font-bold mb-3">Soil Moisture</h4>
@@ -436,7 +479,7 @@ const DeviceDetail = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {sensorData.soilMoisture && sensorData.soilMoisture.length > 0 ? (
+                  {sensorData.soilMoisture && Array.isArray(sensorData.soilMoisture) && sensorData.soilMoisture.length > 0 ? (
                     sensorData.soilMoisture.slice(0, 5).map((data, index) => (
                       <tr key={index}>
                         <td className="py-2 px-4 border-b border-gray-200">
@@ -450,7 +493,7 @@ const DeviceDetail = () => {
                   ) : (
                     <tr>
                       <td colSpan="2" className="py-4 px-4 text-center text-gray-500">
-                        No soil moisture data available. Device may be inactive or data hasn't been received yet.
+                        No soil moisture data available. Device may be Off or data hasn't been received yet.
                       </td>
                     </tr>
                   )}
@@ -465,6 +508,10 @@ const DeviceDetail = () => {
       {sensorData && device.deviceType === 'pump_water' && (
         <div className="mt-6">
           <h3 className="text-xl font-bold mb-4">Pump Data</h3>
+          {console.log('DeviceDetail: Rendering pump data section, sensorData:', sensorData)}
+          {console.log('DeviceDetail: Pump data in sensorData:', sensorData.pumpData)}
+          {console.log('DeviceDetail: Pump data is array:', Array.isArray(sensorData.pumpData))}
+          {console.log('DeviceDetail: Pump data length:', sensorData.pumpData?.length)}
 
           <div className="bg-white rounded-lg shadow-md p-6">
             <h4 className="font-bold mb-3">Pump Operation History</h4>
@@ -484,7 +531,7 @@ const DeviceDetail = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {sensorData.pumpData && sensorData.pumpData.length > 0 ? (
+                  {sensorData.pumpData && Array.isArray(sensorData.pumpData) && sensorData.pumpData.length > 0 ? (
                     sensorData.pumpData.slice(0, 5).map((data, index) => (
                       <tr key={index}>
                         <td className="py-2 px-4 border-b border-gray-200">
@@ -501,7 +548,7 @@ const DeviceDetail = () => {
                   ) : (
                     <tr>
                       <td colSpan="3" className="py-4 px-4 text-center text-gray-500">
-                        No pump operation history available. Device may be inactive or data hasn't been received yet.
+                        No pump operation history available. Please check API response or refresh the page.
                       </td>
                     </tr>
                   )}

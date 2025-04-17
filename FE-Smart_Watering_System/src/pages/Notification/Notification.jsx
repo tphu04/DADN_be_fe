@@ -106,8 +106,6 @@ const Notification = () => {
         return 'purple';
       case 'AUTOMATION':
         return 'warning';
-      case 'UPDATE':
-        return 'cyan';
       default:
         return 'default';
     }
@@ -131,8 +129,6 @@ const Notification = () => {
         { text: 'PUMP', value: 'PUMP' },
         { text: 'USER_ACTION', value: 'USER_ACTION' },
         { text: 'AUTOMATION', value: 'AUTOMATION' },
-        { text: 'UPDATE', value: 'UPDATE' },
-        { text: 'OTHER', value: 'OTHER' },
       ],
       filteredValue: filters?.type || null,
       onFilter: (value, record) => {
@@ -168,11 +164,67 @@ const Notification = () => {
       title: 'Giá trị',
       dataIndex: 'value',
       key: 'value',
-      width: 150,
-      render: (value) => {
+      width: 200,
+      render: (value, record) => {
         if (!value) return <span>-</span>;
         
-        // Try to parse JSON if it's a JSON string
+        // Xử lý đặc biệt cho loại AUTOMATION
+        if (record.type?.toUpperCase() === 'AUTOMATION') {
+          try {
+            const jsonValue = JSON.parse(value);
+            
+            // Tạo chuỗi hiển thị cho các ngày trong tuần
+            const formatDays = (days) => {
+              if (!days || !Array.isArray(days) || days.length === 0) return 'Không có';
+              
+              // Dịch tên các ngày sang tiếng Việt
+              const dayMap = {
+                'monday': 'Thứ 2',
+                'tuesday': 'Thứ 3',
+                'wednesday': 'Thứ 4',
+                'thursday': 'Thứ 5',
+                'friday': 'Thứ 6',
+                'saturday': 'Thứ 7',
+                'sunday': 'Chủ nhật'
+              };
+              
+              return days.map(day => dayMap[day] || day).join(', ');
+            };
+            
+            // Tạo nội dung hiển thị
+            const items = [];
+            
+            // Ngày trong tuần
+            if (jsonValue.days) {
+              items.push(`Ngày: ${formatDays(jsonValue.days)}`);
+            }
+            
+            // Thời gian bắt đầu
+            if (jsonValue.startTime) {
+              items.push(`Bắt đầu: ${jsonValue.startTime}`);
+            }
+            
+            // Thời gian kết thúc (với lịch trình lighting) hoặc thời lượng (với lịch trình watering)
+            if (jsonValue.endTime) {
+              items.push(`Kết thúc: ${jsonValue.endTime}`);
+            } else if (jsonValue.duration) {
+              items.push(`Thời lượng: ${jsonValue.duration} phút`);
+            }
+            
+            return (
+              <div className="flex flex-col">
+                {items.map((item, index) => (
+                  <div key={index} className="text-xs mb-1">{item}</div>
+                ))}
+              </div>
+            );
+          } catch (e) {
+            // Nếu không phải JSON, hiển thị nguyên giá trị
+            return <span>{value}</span>;
+          }
+        }
+        
+        // Xử lý các loại thông báo khác
         try {
           const jsonValue = JSON.parse(value);
           

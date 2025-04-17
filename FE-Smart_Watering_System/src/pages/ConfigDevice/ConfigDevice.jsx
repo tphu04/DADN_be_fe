@@ -24,9 +24,59 @@ const ConfigDevice = () => {
 
   const [configs, setConfigs] = useState(defaultConfig);
   const [loading, setLoading] = useState(false);
+  const [fetchingConfig, setFetchingConfig] = useState(true);
   
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  // Lấy cấu hình hiện tại từ API khi component mount
+  useEffect(() => {
+    const fetchCurrentConfig = async () => {
+      try {
+        setFetchingConfig(true);
+        const response = await axios.get(
+          API_ENDPOINTS.DEVICES.GET_CONFIG('current'),
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
+
+        console.log('Cấu hình nhận được từ API:', response.data);
+        
+        if (response.data && response.data.success && response.data.config) {
+          const configData = response.data.config;
+          setConfigs({
+            soilMoisture: {
+              min: configData.soilMoisture?.min || defaultConfig.soilMoisture.min,
+              max: configData.soilMoisture?.max || defaultConfig.soilMoisture.max
+            },
+            temperature: {
+              min: configData.temperature?.min || defaultConfig.temperature.min,
+              max: configData.temperature?.max || defaultConfig.temperature.max
+            },
+            airHumidity: {
+              min: configData.airHumidity?.min || defaultConfig.airHumidity.min,
+              max: configData.airHumidity?.max || defaultConfig.airHumidity.max
+            }
+          });
+          console.log('Đã cập nhật cấu hình từ API');
+        } else {
+          console.warn('Không tìm thấy cấu hình từ API, sử dụng cấu hình mặc định');
+          setConfigs(defaultConfig);
+        }
+      } catch (error) {
+        console.error("Lỗi khi lấy cấu hình:", error);
+        toast.error("Không thể lấy cấu hình từ server: " + (error.response?.data?.message || error.message));
+        setConfigs(defaultConfig);
+      } finally {
+        setFetchingConfig(false);
+      }
+    };
+
+    fetchCurrentConfig();
+  }, []);
 
   const handleRangeChange = (key, value) => {
     setConfigs((prev) => ({ ...prev, [key]: value }));
@@ -83,7 +133,7 @@ const ConfigDevice = () => {
         </h1>
       </div>
 
-      <Card title="Cấu hình ngưỡng cảm biến" className="mb-6">
+      <Card title="Cấu hình ngưỡng cảm biến" className="mb-6" loading={fetchingConfig}>
         <div className="bg-blue-50 p-3 rounded border border-blue-200 mb-4">
           <div className="font-medium text-blue-700 mb-1">Hướng dẫn:</div>
           <div className="text-blue-600 text-sm">
@@ -101,7 +151,7 @@ const ConfigDevice = () => {
             min={0}
             max={100}
             step={1}
-            description="Thiết lập ngưỡng độ ẩm đất tối thiểu và tối đa. Nếu độ ẩm thấp hơn ngưỡng tối thiểu, máy bơm sẽ được kích hoạt."
+            description="Thiết lập ngưỡng độ ẩm đất tối thiểu và tối đa. Nếu độ ẩm thấp hơn ngưỡng tối thiểu, máy bơm sẽ được kích hoạt. Nếu cao hơn ngưỡng tối đa, đèn sẽ được kích hoạt."
           />
 
           {/* Nhiệt độ */}
@@ -112,7 +162,7 @@ const ConfigDevice = () => {
             min={0}
             max={50}
             step={1}
-            description="Thiết lập ngưỡng nhiệt độ tối thiểu và tối đa để theo dõi điều kiện môi trường."
+            description="Thiết lập ngưỡng nhiệt độ tối thiểu và tối đa. Nếu nhiệt độ thấp hơn ngưỡng tối thiểu, đèn sẽ được kích hoạt. Nếu cao hơn ngưỡng tối đa, máy bơm sẽ được kích hoạt."
           />
 
           {/* Độ ẩm không khí */}
@@ -123,7 +173,7 @@ const ConfigDevice = () => {
             min={0}
             max={100}
             step={1}
-            description="Thiết lập ngưỡng độ ẩm không khí tối thiểu và tối đa để theo dõi điều kiện môi trường."
+            description="Thiết lập ngưỡng độ ẩm không khí tối thiểu và tối đa. Nếu độ ẩm thấp hơn ngưỡng tối thiểu, máy bơm sẽ được kích hoạt. Nếu cao hơn ngưỡng tối đa, đèn sẽ được kích hoạt."
           />
         </div>
       </Card>
@@ -132,6 +182,7 @@ const ConfigDevice = () => {
         <Button
           onClick={handleResetToDefault}
           className="min-w-[120px]"
+          disabled={loading || fetchingConfig}
         >
           Khôi phục mặc định
         </Button>
@@ -141,7 +192,7 @@ const ConfigDevice = () => {
           icon={<SaveOutlined />}
           onClick={handleSaveAll}
           loading={loading}
-          disabled={loading}
+          disabled={loading || fetchingConfig}
           className="min-w-[150px]"
         >
           {loading ? "Đang lưu..." : "Lưu cấu hình"}

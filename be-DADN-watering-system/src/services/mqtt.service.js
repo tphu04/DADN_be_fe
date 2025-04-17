@@ -174,10 +174,10 @@ class MQTTService {
     // Sửa phương thức tạo dữ liệu nhiệt độ
     async _processReceivedData(topic, data) {
         // Check if this is a duplicate message
-        if (this._isMessageDuplicate(topic, data)) {
-            console.log(`🔄 Bỏ qua tin nhắn trùng lặp: ${topic} - ${data}`);
-            return;
-        }
+        // if (this._isMessageDuplicate(topic, data)) {
+        //     console.log(`🔄 Bỏ qua tin nhắn trùng lặp: ${topic} - ${data}`);
+        //     return;
+        // }
         
         console.log(`📩 Nhận dữ liệu MQTT: Topic=${topic}, Data=${data}`);
         
@@ -241,7 +241,7 @@ class MQTTService {
                     // Phân tích dữ liệu định dạng "On:50" hoặc "Off:0"
                     const parts = data.split(':');
                     const status = parts[0]; // 'On' hoặc 'Off'
-                    const speed = parseInt(parts[1]) || 0; // Tốc độ (50, 100, ...)
+                    const speed = parseInt(parts[1]) ; // Tốc độ (50, 100, ...)
                     
                     // Sử dụng tốc độ làm giá trị để lưu vào database
                     parsedValue = speed;
@@ -1194,8 +1194,8 @@ class MQTTService {
             if (normalizedDeviceType === 'pump') {
                 // Tạo giá trị cho máy bơm
                 if (command.status === 'On') {
-                    // Sử dụng giá trị value từ lệnh, giữ nguyên giá trị
-                    const speed = command.value || 100;
+                    // Sử dụng giá trị speed từ lệnh, giữ nguyên giá trị
+                    const speed = command.speed || command.value ;
                     value = `${speed}`;
                     console.log(`📤 Gửi giá trị "${value}" cho máy bơm - CHÍNH XÁC THEO LỆNH`);
                 } else {
@@ -1226,11 +1226,11 @@ class MQTTService {
                     await prisma.pumpwaterdata.create({
                         data: {
                             status: command.status,
-                            pumpSpeed: command.status === 'On' ? (command.value || 100) : 0,
+                            pumpSpeed: command.status === 'On' ? (command.speed || command.value ) : 0,
                             deviceId: parseInt(deviceId)
                         }
                     });
-                        console.log(`✅ Đã lưu dữ liệu máy bơm vào database với tốc độ ${command.status === 'On' ? (command.value || 100) : 0}`);
+                        console.log(`✅ Đã lưu dữ liệu máy bơm vào database với tốc độ ${command.status === 'On' ? (command.speed || command.value ) : 0}`);
                     } else if (normalizedDeviceType === 'light') {
                     await prisma.lightdata.create({
                         data: {

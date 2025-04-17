@@ -78,13 +78,10 @@ const isDeviceOnline = async (device) => {
 // Lấy tất cả lịch trình của người dùng
 exports.getAllSchedules = async (req, res) => {
   try {
-    const userId = req.user.id;
+    // Bỏ filter userId
     
-    // Lấy tất cả lịch trình của người dùng
+    // Lấy tất cả lịch trình
     const schedules = await prisma.scheduled.findMany({
-      where: {
-        userId: userId
-      },
       include: {
         device: {
           select: {
@@ -123,13 +120,12 @@ exports.getAllSchedules = async (req, res) => {
 exports.getScheduleById = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    // Bỏ dòng lấy userId
     
-    // Lấy lịch trình theo ID và userId
-    const schedule = await prisma.scheduled.findFirst({
+    // Lấy lịch trình theo ID, không lọc theo userId
+    const schedule = await prisma.scheduled.findUnique({
       where: {
-        id: parseInt(id),
-        userId: userId
+        id: parseInt(id)
       },
       include: {
         device: {
@@ -275,14 +271,13 @@ exports.createSchedule = async (req, res) => {
 exports.updateSchedule = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    // Bỏ dòng lấy userId
     const { enabled, startTime, endTime, duration, speed, days, autoMode } = req.body;
     
-    // Kiểm tra lịch trình có tồn tại không
-    const existingSchedule = await prisma.scheduled.findFirst({
+    // Kiểm tra lịch trình có tồn tại không, không lọc theo userId
+    const existingSchedule = await prisma.scheduled.findUnique({
       where: {
-        id: parseInt(id),
-        userId: userId
+        id: parseInt(id)
       },
       include: {
         device: true
@@ -371,13 +366,12 @@ exports.updateSchedule = async (req, res) => {
 exports.deleteSchedule = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    // Bỏ dòng lấy userId
     
-    // Kiểm tra lịch trình có tồn tại không
-    const existingSchedule = await prisma.scheduled.findFirst({
+    // Kiểm tra lịch trình có tồn tại không, không lọc theo userId
+    const existingSchedule = await prisma.scheduled.findUnique({
       where: {
-        id: parseInt(id),
-        userId: userId
+        id: parseInt(id)
       }
     });
     
@@ -411,13 +405,12 @@ exports.deleteSchedule = async (req, res) => {
 exports.toggleSchedule = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    // Bỏ dòng lấy userId
     
-    // Kiểm tra lịch trình có tồn tại không
-    const existingSchedule = await prisma.scheduled.findFirst({
+    // Kiểm tra lịch trình có tồn tại không, không lọc theo userId
+    const existingSchedule = await prisma.scheduled.findUnique({
       where: {
-        id: parseInt(id),
-        userId: userId
+        id: parseInt(id)
       }
     });
     
@@ -461,7 +454,7 @@ exports.toggleSchedule = async (req, res) => {
 exports.getSchedulesByDevice = async (req, res) => {
   try {
     const { deviceId } = req.params;
-    const userId = req.user.id;
+    // Bỏ dòng lấy userId
     
     // Kiểm tra thiết bị có tồn tại không
     const device = await prisma.iotdevice.findFirst({
@@ -477,11 +470,10 @@ exports.getSchedulesByDevice = async (req, res) => {
       });
     }
     
-    // Lấy lịch trình theo deviceId và userId
+    // Lấy lịch trình theo deviceId, không lọc theo userId
     const schedules = await prisma.scheduled.findMany({
       where: {
-        deviceId: parseInt(deviceId),
-        userId: userId
+        deviceId: parseInt(deviceId)
       },
       orderBy: {
         createdAt: 'desc'
@@ -724,5 +716,67 @@ exports.turnOffBySchedule = async (scheduleId) => {
     }
   } catch (error) {
     console.error('Lỗi khi tắt thiết bị theo lịch trình:', error);
+  }
+};
+
+// Đặt trạng thái bật/tắt lịch trình qua tham số query
+exports.setScheduleEnabled = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { enabled } = req.query;
+    
+    console.log(`Đang đặt trạng thái enabled=${enabled} cho lịch trình ${id}`);
+    
+    // Kiểm tra tham số enabled
+    if (enabled === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Thiếu tham số enabled'
+      });
+    }
+    
+    // Chuyển đổi giá trị chuỗi enabled thành boolean
+    const enabledValue = enabled === 'true' || enabled === '1';
+    
+    // Kiểm tra lịch trình có tồn tại không
+    const existingSchedule = await prisma.scheduled.findUnique({
+      where: {
+        id: parseInt(id)
+      }
+    });
+    
+    if (!existingSchedule) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy lịch trình'
+      });
+    }
+    
+    // Cập nhật trạng thái enabled
+    const updatedSchedule = await prisma.scheduled.update({
+      where: { id: parseInt(id) },
+      data: { enabled: enabledValue }
+    });
+    
+    // Tính toán thời gian thực thi tiếp theo nếu đã bật
+    if (updatedSchedule.enabled) {
+      await updateNextExecution(updatedSchedule.id);
+    }
+    
+    return res.status(200).json({
+      success: true,
+      message: `Đã ${updatedSchedule.enabled ? 'bật' : 'tắt'} lịch trình`,
+      data: {
+        ...updatedSchedule,
+        days: parseDaysArray(updatedSchedule.days)
+      }
+    });
+  } catch (error) {
+    console.error('Lỗi khi đặt trạng thái lịch trình:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi khi đặt trạng thái lịch trình',
+      error: error.message
+    });
   }
 };

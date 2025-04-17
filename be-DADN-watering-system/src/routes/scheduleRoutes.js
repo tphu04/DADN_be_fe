@@ -12,6 +12,9 @@ router.get('/', scheduleController.getAllSchedules);
 // Lấy lịch trình theo ID
 router.get('/:id', scheduleController.getScheduleById);
 
+// Đặt trạng thái bật/tắt lịch trình (endpoint mới với tham số query)
+router.get('/:id/set-enabled', scheduleController.setScheduleEnabled);
+
 // Lấy lịch trình theo thiết bị
 router.get('/device/:deviceId', scheduleController.getSchedulesByDevice);
 

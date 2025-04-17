@@ -44,7 +44,7 @@ const getAllUsers = async (req, res) => {
       isAccepted: false,
       mqttUsername: null,
       mqttApiKey: null,
-      deviceCount: user._count.configuration || 0
+      deviceCount: user._count.configuration 
     }));
 
     return res.status(200).json({

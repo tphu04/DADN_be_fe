@@ -30,7 +30,7 @@ const DeviceSetting = () => {
   // Fetch danh sách thiết bị khi component mount
   useEffect(() => {
     fetchDevices();
-    
+
     // Cleanup khi component unmount
     return () => {
       if (refreshIntervalRef.current) {
@@ -42,7 +42,7 @@ const DeviceSetting = () => {
   const fetchDevices = async () => {
     try {
       setLoading(true);
-      // Sử dụng getAllDevices thay vì getUserDevices để lấy tất cả thiết bị
+      // Sử dụng getAllDevices thay vì getDevices để lấy tất cả thiết bị
       const result = await DeviceServices.getAllDevices();
       setDevices(result);
     } catch (error) {
@@ -58,7 +58,7 @@ const DeviceSetting = () => {
     try {
       // Tạo đối tượng mới để lưu trạng thái kết nối
       const statusObj = {};
-      
+
       // Duyệt qua danh sách thiết bị để kiểm tra kết nối
       for (const device of deviceList) {
         try {
@@ -66,10 +66,10 @@ const DeviceSetting = () => {
           const response = await axiosInstance.get(`/devices/${device.id}/mqtt-status`).catch(async () => {
             // Kiểm tra bằng cách lấy thông tin thiết bị
             const deviceDetail = await DeviceServices.getDeviceById(device.id).catch(() => null);
-            
+
             // Kiểm tra xem thiết bị có nhận được dữ liệu gần đây không
             let hasRecentData = false;
-            
+
             // 1. Kiểm tra thông qua các feed
             if (deviceDetail && deviceDetail.feed && deviceDetail.feed.length > 0) {
               for (const feed of deviceDetail.feed) {
@@ -78,7 +78,7 @@ const DeviceSetting = () => {
                   const lastUpdateTime = new Date(feed.updatedAt);
                   const fiveMinutesAgo = new Date();
                   fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
-                  
+
                   if (lastUpdateTime > fiveMinutesAgo) {
                     hasRecentData = true;
                     console.log(`Feed ${feed.name} có dữ liệu gần đây: ${lastUpdateTime.toLocaleString()}`);
@@ -87,26 +87,26 @@ const DeviceSetting = () => {
                 }
               }
             }
-            
+
             // 2. Kiểm tra qua lastSeen của thiết bị
             if (!hasRecentData && deviceDetail && deviceDetail.lastSeen) {
               const lastUpdateDate = new Date(deviceDetail.lastSeen);
               const fiveMinutesAgo = new Date();
               fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
-              
+
               hasRecentData = lastUpdateDate > fiveMinutesAgo;
             }
-            
+
             return {
-              data: { 
-                success: true, 
-                data: { 
-                  isConnected: hasRecentData 
-                } 
+              data: {
+                success: true,
+                data: {
+                  isConnected: hasRecentData
+                }
               }
             };
           });
-          
+
           // Kiểm tra phản hồi từ API
           if (response && response.data && response.data.success) {
             // Sử dụng kết quả từ API
@@ -114,7 +114,7 @@ const DeviceSetting = () => {
           } else {
             // Fallback: Kiểm tra dữ liệu thực tế từ các cảm biến
             let hasRecentData = false;
-            
+
             // Kiểm tra dữ liệu cảm biến dựa trên loại thiết bị
             if (device.deviceType === 'temperature_humidity') {
               const sensorData = await DeviceServices.getTemperatureHumidityData(device.id).catch(() => []);
@@ -124,7 +124,7 @@ const DeviceSetting = () => {
                 const readingTime = new Date(latestData.readingTime);
                 const fiveMinutesAgo = new Date();
                 fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
-                
+
                 hasRecentData = readingTime > fiveMinutesAgo;
               }
             } else if (device.deviceType === 'soil_moisture') {
@@ -134,7 +134,7 @@ const DeviceSetting = () => {
                 const readingTime = new Date(latestData.readingTime);
                 const fiveMinutesAgo = new Date();
                 fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
-                
+
                 hasRecentData = readingTime > fiveMinutesAgo;
               }
             } else if (device.deviceType === 'pump_water') {
@@ -144,7 +144,7 @@ const DeviceSetting = () => {
                 const readingTime = new Date(latestData.readingTime);
                 const fiveMinutesAgo = new Date();
                 fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
-                
+
                 hasRecentData = readingTime > fiveMinutesAgo;
               }
             } else if (device.deviceType === 'light') {
@@ -154,11 +154,11 @@ const DeviceSetting = () => {
                 const readingTime = new Date(latestData.readingTime);
                 const fiveMinutesAgo = new Date();
                 fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
-                
+
                 hasRecentData = readingTime > fiveMinutesAgo;
               }
             }
-            
+
             // Gán trạng thái kết nối dựa trên việc nhận được dữ liệu gần đây
             statusObj[device.id] = hasRecentData;
           }
@@ -168,7 +168,7 @@ const DeviceSetting = () => {
           statusObj[device.id] = false;
         }
       }
-      
+
       setDeviceConnectionStatus(statusObj);
     } catch (error) {
       console.error("Error checking device connections:", error);
@@ -180,7 +180,7 @@ const DeviceSetting = () => {
       message.error("Tài khoản của bạn chưa được chấp nhận. Vui lòng liên hệ quản trị viên.");
       return;
     }
-    
+
     setEditingDevice(null);
     setModalTitle("Thêm thiết bị mới");
     form.resetFields();
@@ -190,14 +190,14 @@ const DeviceSetting = () => {
   const showEditModal = (device) => {
     setEditingDevice(device);
     setModalTitle(`Chỉnh sửa thiết bị: ${device.deviceCode}`);
-    
+
     // Tạo initialValues cho form
     const initialValues = {
       deviceCode: device.deviceCode,
       description: device.description,
       status: device.status
     };
-    
+
     // Nếu có feed, chuẩn bị dữ liệu feed cho form
     if (device.feed && device.feed.length > 0) {
       // Tạo mảng feeds để đổ dữ liệu vào form
@@ -209,11 +209,11 @@ const DeviceSetting = () => {
         maxValue: feed.maxValue
       }));
     }
-    
+
     // Reset form và đặt giá trị mới
     form.resetFields();
     form.setFieldsValue(initialValues);
-    
+
     console.log('Khởi tạo form với dữ liệu:', JSON.stringify(initialValues, null, 2));
     setModalVisible(true);
   };
@@ -228,7 +228,7 @@ const DeviceSetting = () => {
 
       if (editingDevice) {
         console.log('Dữ liệu cập nhật thiết bị:', JSON.stringify(values, null, 2));
-        
+
         // Sử dụng DeviceServices thay vì gọi axios trực tiếp
         const result = await DeviceServices.updateDevice(editingDevice.id, values);
         if (result.success) {
@@ -245,7 +245,7 @@ const DeviceSetting = () => {
           setModalVisible(false);
           return;
         }
-        
+
         // Thêm thiết bị mới
         // Đảm bảo mỗi feed có name và feedKey
         if (values.feeds && values.feeds.length > 0) {
@@ -286,10 +286,10 @@ const DeviceSetting = () => {
       const response = await axiosInstance.delete(`/devices/${deviceId}`);
       if (response.data.success) {
         message.success("Xóa thiết bị thành công");
-        
+
         // Cập nhật danh sách thiết bị
         fetchDevices();
-        
+
         // Xóa trạng thái kết nối của thiết bị đã xóa
         setDeviceConnectionStatus((prev) => {
           const newStatus = { ...prev };
@@ -318,7 +318,7 @@ const DeviceSetting = () => {
       render: (type) => {
         let color;
         let text;
-        
+
         switch (type) {
           case 'temperature_humidity':
             color = 'blue';
@@ -340,7 +340,7 @@ const DeviceSetting = () => {
             color = 'default';
             text = type;
         }
-        
+
         return <Tag color={color}>{text}</Tag>;
       }
     },
@@ -356,14 +356,14 @@ const DeviceSetting = () => {
       render: (_, record) => (
         <Space size="small">
           <Link to={`/config/${record.id}`}>
-            <Button 
-              type="primary" 
-              size="small" 
+            <Button
+              type="primary"
+              size="small"
               icon={<SettingOutlined />}
               title="Cài đặt cấu hình"
             />
           </Link>
-          
+
           <Button
             type="default"
             size="small"
@@ -371,7 +371,7 @@ const DeviceSetting = () => {
             onClick={() => showEditModal(record)}
             title="Chỉnh sửa"
           />
-          
+
           <Popconfirm
             title="Bạn có chắc muốn xóa thiết bị này?"
             onConfirm={() => handleDelete(record.id)}
@@ -493,8 +493,8 @@ const DeviceSetting = () => {
             <TextArea rows={4} placeholder="Nhập mô tả về thiết bị (tùy chọn)" />
           </Form.Item>
 
-          
-          
+
+
           {/* Phần chỉnh sửa feeds - hiển thị khi edit thiết bị */}
           {editingDevice && editingDevice.feed && editingDevice.feed.length > 0 && (
             <div className="mb-4">
@@ -506,7 +506,7 @@ const DeviceSetting = () => {
                   Chỉnh sửa thông tin feeds của thiết bị.
                 </p>
               </Card>
-              
+
               <Form.List name="feeds">
                 {(fields) => (
                   <div className="space-y-4 mt-2">
@@ -532,7 +532,7 @@ const DeviceSetting = () => {
                             </Form.Item>
                           </Col>
                         </Row>
-                        
+
                         {/* Hidden field để lưu id của feed */}
                         <Form.Item
                           name={[field.name, 'id']}
@@ -547,7 +547,7 @@ const DeviceSetting = () => {
               </Form.List>
             </div>
           )}
-          
+
           {/* Phần thêm feeds - chỉ hiển thị khi thêm thiết bị mới */}
           {!editingDevice && (
             <div className="mb-4">
@@ -559,11 +559,11 @@ const DeviceSetting = () => {
                   Mỗi thiết bị cần có ít nhất một feed để nhận dữ liệu từ MQTT.
                 </p>
                 <p className="text-sm text-gray-500">
-                  Ví dụ: Nếu MQTT topic là "username/feeds/temperature", 
+                  Ví dụ: Nếu MQTT topic là "username/feeds/temperature",
                   thì feedKey là "temperature"
                 </p>
               </Card>
-              
+
               <Form.List name="feeds" rules={[
                 {
                   validator: async (_, feeds) => {

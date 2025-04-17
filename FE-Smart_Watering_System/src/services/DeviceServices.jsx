@@ -15,7 +15,7 @@ const sampleSoilMoistureData = [
 
 const samplePumpData = [
   { readingTime: new Date().toISOString(), status: 'Active', pumpSpeed: 75 },
-  { readingTime: new Date(Date.now() - 3600000).toISOString(), status: 'Inactive', pumpSpeed: 0 },
+  { readingTime: new Date(Date.now() - 3600000).toISOString(), status: 'Off', pumpSpeed: 0 },
   { readingTime: new Date(Date.now() - 7200000).toISOString(), status: 'Active', pumpSpeed: 80 }
 ];
 
@@ -25,6 +25,9 @@ const sampleLightData = [
   { readingTime: new Date(Date.now() - 7200000).toISOString(), status: 'On', brightness: 100 }
 ];
 
+// Export sample data để có thể sử dụng trong các component khác
+export { sampleTemperatureHumidityData, sampleSoilMoistureData, samplePumpData, sampleLightData };
+
 const DeviceServices = {
   // Lấy tất cả thiết bị
   getAllDevices: async () => {
@@ -32,12 +35,12 @@ const DeviceServices = {
       console.log('Fetching all devices');
       const response = await axios.get('/devices');
       console.log('All devices response:', response.data);
-      
+
       // Kiểm tra cấu trúc phản hồi
       if (response.data && response.data.success && response.data.data) {
         return response.data.data;
       }
-      
+
       // Trả về response.data nếu không có cấu trúc data nested
       return response.data;
     } catch (error) {
@@ -48,18 +51,18 @@ const DeviceServices = {
   },
 
   // Lấy thiết bị của người dùng đang đăng nhập
-  getUserDevices: async () => {
+  getDevices: async () => {
     try {
       console.log('Fetching devices for current user');
       // Gọi API route đặc biệt cho thiết bị của người dùng hiện tại
       const response = await axios.get('/devices');
       console.log('User devices response:', response.data);
-      
+
       // Kiểm tra cấu trúc phản hồi
       if (response.data && response.data.success && response.data.data) {
         return response.data.data;
       }
-      
+
       return response.data;
     } catch (error) {
       console.error('Error fetching user devices:', error);
@@ -73,7 +76,7 @@ const DeviceServices = {
       console.log('Adding new device:', deviceData);
       const response = await axios.post('/devices', deviceData);
       console.log('Add device response:', response.data);
-      
+
       if (response.data && response.data.success) {
         return {
           success: true,
@@ -81,7 +84,7 @@ const DeviceServices = {
           message: response.data.message || 'Thêm thiết bị thành công'
         };
       }
-      
+
       return {
         success: false,
         message: response.data.message || 'Lỗi khi thêm thiết bị'
@@ -89,11 +92,11 @@ const DeviceServices = {
     } catch (error) {
       console.error('Error adding device:', error);
       let errorMessage = 'Lỗi kết nối đến máy chủ';
-      
+
       if (error.response) {
         errorMessage = error.response.data.message || `Lỗi: ${error.response.status}`;
       }
-      
+
       return {
         success: false,
         message: errorMessage
@@ -107,18 +110,18 @@ const DeviceServices = {
       console.log('Fetching device by ID:', deviceId);
       const response = await axios.get(`/devices/${deviceId}`);
       console.log('Device detail response:', response.data);
-      
+
       // Kiểm tra cấu trúc phản hồi
       if (response.data && response.data.success && response.data.device) {
         // Trả về thiết bị với trạng thái đã được lấy từ backend
         return response.data.device;
       }
-      
+
       // Nếu không có cấu trúc device trong response, thử kiểm tra data
       if (response.data && response.data.data) {
         return response.data.data;
       }
-      
+
       return response.data;
     } catch (error) {
       console.error(`Error fetching device ${deviceId}:`, error);
@@ -140,12 +143,20 @@ const DeviceServices = {
       console.log('Fetching temperature humidity data for device:', deviceId);
       const response = await axios.get(`/devices/${deviceId}/temperature-humidity`);
       console.log('Temperature humidity data response:', response.data);
-      
+
+      // Kiểm tra nếu response là HTML (bắt đầu với <!doctype hoặc <html)
+      if (typeof response.data === 'string' && 
+          (response.data.toLowerCase().includes('<!doctype') || 
+           response.data.toLowerCase().includes('<html'))) {
+        console.error('Server returned HTML instead of JSON for temperature-humidity data. Using sample data.');
+        return sampleTemperatureHumidityData;
+      }
+
       // Check if API returned expected format with data property
       if (response.data && response.data.data) {
         return response.data.data;
       }
-      
+
       return response.data;
     } catch (error) {
       console.error('Error fetching temperature humidity data:', error);
@@ -159,17 +170,94 @@ const DeviceServices = {
   getSoilMoistureData: async (deviceId) => {
     try {
       console.log('Fetching soil moisture data for device:', deviceId);
-      const response = await axios.get(`/devices/${deviceId}/soil-moisture`);
-      console.log('Soil moisture data response:', response.data);
       
+      // Kiểm tra token trước khi gọi API
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found. This may cause 401 errors.');
+      } else {
+        // Log token expiry info for debugging (không log toàn bộ token vì lý do bảo mật)
+        try {
+          const tokenParts = token.split('.');
+          if (tokenParts.length === 3) {
+            const payload = JSON.parse(atob(tokenParts[1]));
+            if (payload.exp) {
+              const expiry = new Date(payload.exp * 1000);
+              const now = new Date();
+              console.log(`Token expires at: ${expiry.toLocaleString()}, Now: ${now.toLocaleString()}, Valid: ${expiry > now}`);
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing token:', e);
+        }
+      }
+
+      // Log full URL for debugging
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const fullUrl = `${API_URL}/api/devices/${deviceId}/soil-moisture`;
+      console.log('Full API URL:', fullUrl);
+      
+      // Sử dụng phương thức GET với timeout để ngăn chặn pending quá lâu
+      const response = await axios.get(`/devices/${deviceId}/soil-moisture`, {
+        timeout: 10000, // 10 seconds timeout
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('Soil moisture data response status:', response.status);
+      console.log('Soil moisture data response headers:', response.headers);
+      console.log('Soil moisture data response data:', response.data);
+
+      // Kiểm tra nếu response là HTML (bắt đầu với <!doctype hoặc <html)
+      if (typeof response.data === 'string' && 
+          (response.data.toLowerCase().includes('<!doctype') || 
+           response.data.toLowerCase().includes('<html'))) {
+        console.error('Server returned HTML instead of JSON for soil moisture data. Using sample data.');
+        // Log thêm nội dung HTML để debug
+        console.error('HTML content (first 200 chars):', response.data.substring(0, 200));
+        return sampleSoilMoistureData;
+      }
+
       // Check if API returned expected format with data property
       if (response.data && response.data.data) {
         return response.data.data;
       }
-      
+
       return response.data;
     } catch (error) {
       console.error('Error fetching soil moisture data:', error);
+      // Add more detailed error logging
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response headers:', error.response.headers);
+        console.error('Response data:', error.response.data);
+        
+        // Check for common status codes
+        if (error.response.status === 401) {
+          console.error('Authentication error: Your token may be invalid or expired');
+        } else if (error.response.status === 403) {
+          console.error('Authorization error: You do not have permission to access this resource');
+        } else if (error.response.status === 404) {
+          console.error('API endpoint not found: Check if /api/devices/${deviceId}/soil-moisture exists');
+        } else if (error.response.status === 500) {
+          console.error('Server error: The backend server encountered an error');
+        }
+      } else if (error.request) {
+        console.error('No response received:', error.request);
+        console.error('Network error: Server might be down or CORS issue');
+      } else {
+        console.error('Error setting up request:', error.message);
+      }
+      
+      // Log API config cho debug
+      if (error.config) {
+        console.log('API Request URL:', error.config.url);
+        console.log('API Request Method:', error.config.method);
+        console.log('API Request Headers:', error.config.headers);
+      }
+
       // Return sample data instead of throwing error
       console.log('Using sample soil moisture data due to API error');
       return sampleSoilMoistureData;
@@ -180,17 +268,94 @@ const DeviceServices = {
   getPumpWaterData: async (deviceId) => {
     try {
       console.log('Fetching pump water data for device:', deviceId);
-      const response = await axios.get(`/devices/${deviceId}/pump-water`);
-      console.log('Pump water data response:', response.data);
       
+      // Kiểm tra token trước khi gọi API
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found. This may cause 401 errors.');
+      } else {
+        // Log token expiry info for debugging (không log toàn bộ token vì lý do bảo mật)
+        try {
+          const tokenParts = token.split('.');
+          if (tokenParts.length === 3) {
+            const payload = JSON.parse(atob(tokenParts[1]));
+            if (payload.exp) {
+              const expiry = new Date(payload.exp * 1000);
+              const now = new Date();
+              console.log(`Token expires at: ${expiry.toLocaleString()}, Now: ${now.toLocaleString()}, Valid: ${expiry > now}`);
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing token:', e);
+        }
+      }
+
+      // Log full URL for debugging
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const fullUrl = `${API_URL}/api/devices/${deviceId}/pump-water`;
+      console.log('Full API URL:', fullUrl);
+      
+      // Sử dụng phương thức GET với timeout để ngăn chặn pending quá lâu
+      const response = await axios.get(`/devices/${deviceId}/pump-water`, {
+        timeout: 10000, // 10 seconds timeout
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('Pump water data response status:', response.status);
+      console.log('Pump water data response headers:', response.headers);
+      console.log('Pump water data response data:', response.data);
+
+      // Kiểm tra nếu response là HTML (bắt đầu với <!doctype hoặc <html)
+      if (typeof response.data === 'string' && 
+          (response.data.toLowerCase().includes('<!doctype') || 
+           response.data.toLowerCase().includes('<html'))) {
+        console.error('Server returned HTML instead of JSON for pump data. Using sample data.');
+        // Log thêm nội dung HTML để debug
+        console.error('HTML content (first 200 chars):', response.data.substring(0, 200));
+        return samplePumpData;
+      }
+
       // Check if API returned expected format with data property
       if (response.data && response.data.data) {
         return response.data.data;
       }
-      
+
       return response.data;
     } catch (error) {
       console.error('Error fetching pump water data:', error);
+      // Add more detailed error logging
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response headers:', error.response.headers);
+        console.error('Response data:', error.response.data);
+        
+        // Check for common status codes
+        if (error.response.status === 401) {
+          console.error('Authentication error: Your token may be invalid or expired');
+        } else if (error.response.status === 403) {
+          console.error('Authorization error: You do not have permission to access this resource');
+        } else if (error.response.status === 404) {
+          console.error('API endpoint not found: Check if /api/devices/${deviceId}/pump-water exists');
+        } else if (error.response.status === 500) {
+          console.error('Server error: The backend server encountered an error');
+        }
+      } else if (error.request) {
+        console.error('No response received:', error.request);
+        console.error('Network error: Server might be down or CORS issue');
+      } else {
+        console.error('Error setting up request:', error.message);
+      }
+      
+      // Log API config cho debug
+      if (error.config) {
+        console.log('API Request URL:', error.config.url);
+        console.log('API Request Method:', error.config.method);
+        console.log('API Request Headers:', error.config.headers);
+      }
+
       // Return sample data instead of throwing error
       console.log('Using sample pump data due to API error');
       return samplePumpData;
@@ -203,12 +368,20 @@ const DeviceServices = {
       console.log('Fetching light data for device:', deviceId);
       const response = await axios.get(`/devices/${deviceId}/light`);
       console.log('Light data response:', response.data);
-      
+
+      // Kiểm tra nếu response là HTML (bắt đầu với <!doctype hoặc <html)
+      if (typeof response.data === 'string' && 
+          (response.data.toLowerCase().includes('<!doctype') || 
+           response.data.toLowerCase().includes('<html'))) {
+        console.error('Server returned HTML instead of JSON for light data. Using sample data.');
+        return sampleLightData;
+      }
+
       // Check if API returned expected format with data property
       if (response.data && response.data.data) {
         return response.data.data;
       }
-      
+
       return response.data;
     } catch (error) {
       console.error('Error fetching light data:', error);
@@ -224,7 +397,7 @@ const DeviceServices = {
       console.log('Updating device:', deviceId, deviceData);
       const response = await axios.put(`/devices/${deviceId}`, deviceData);
       console.log('Update device response:', response.data);
-      
+
       if (response.data && response.data.success) {
         return {
           success: true,
@@ -232,7 +405,7 @@ const DeviceServices = {
           message: response.data.message || 'Cập nhật thiết bị thành công'
         };
       }
-      
+
       return {
         success: false,
         message: response.data.message || 'Lỗi khi cập nhật thiết bị'
@@ -240,11 +413,11 @@ const DeviceServices = {
     } catch (error) {
       console.error('Error updating device:', error);
       let errorMessage = 'Lỗi kết nối đến máy chủ';
-      
+
       if (error.response) {
         errorMessage = error.response.data.message || `Lỗi: ${error.response.status}`;
       }
-      
+
       return {
         success: false,
         message: errorMessage

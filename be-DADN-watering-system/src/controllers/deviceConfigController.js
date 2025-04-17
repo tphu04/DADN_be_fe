@@ -129,18 +129,18 @@ const applyDeviceConfig = async (device, config, configData) => {
     let humidityMax = null;
 
     if (configData.soilMoisture) {
-      soilMoistureMin = parseFloat(configData.soilMoisture.min) || 0;
-      soilMoistureMax = parseFloat(configData.soilMoisture.max) || 100;
+      soilMoistureMin = parseFloat(configData.soilMoisture.min) ;
+      soilMoistureMax = parseFloat(configData.soilMoisture.max) ;
     }
 
     if (configData.temperature) {
-      temperatureMin = parseFloat(configData.temperature.min) || 0;
+      temperatureMin = parseFloat(configData.temperature.min) ;
       temperatureMax = parseFloat(configData.temperature.max) || 50;
     }
 
     if (configData.airHumidity) {
-      humidityMin = parseFloat(configData.airHumidity.min) || 0;
-      humidityMax = parseFloat(configData.airHumidity.max) || 100;
+      humidityMin = parseFloat(configData.airHumidity.min) ;
+      humidityMax = parseFloat(configData.airHumidity.max) ;
     }
 
     // Duyệt qua từng feed và gửi cấu hình tương ứng qua MQTT
@@ -215,12 +215,12 @@ exports.saveConfiguration = async (req, res) => {
     console.log(`Đang lưu cấu hình mới:`, JSON.stringify(config));
 
     // Chuẩn bị dữ liệu cấu hình
-    const soilMoistureMin = parseFloat(config.soilMoisture?.min) || 0;
-    const soilMoistureMax = parseFloat(config.soilMoisture?.max) || 100;
-    const temperatureMin = parseFloat(config.temperature?.min) || 0;
+    const soilMoistureMin = parseFloat(config.soilMoisture?.min) ;
+    const soilMoistureMax = parseFloat(config.soilMoisture?.max) ;
+    const temperatureMin = parseFloat(config.temperature?.min) ;
     const temperatureMax = parseFloat(config.temperature?.max) || 50;
-    const humidityMin = parseFloat(config.airHumidity?.min) || 0;
-    const humidityMax = parseFloat(config.airHumidity?.max) || 100;
+    const humidityMin = parseFloat(config.airHumidity?.min) ;
+    const humidityMax = parseFloat(config.airHumidity?.max) ;
 
     // Kiểm tra xem đã có cấu hình giống hệt chưa - sử dụng transaction để đảm bảo tính nhất quán
     console.log('Kiểm tra cấu hình trước khi tạo mới');
@@ -238,17 +238,19 @@ exports.saveConfiguration = async (req, res) => {
       // Luôn tạo bản ghi mới
       const newConfig = await tx.configuration.create({
         data: {
-          userId: userId,
-          // Không sử dụng deviceId vì không có trong schema
           soilMoistureMin,
           soilMoistureMax,
           temperatureMin,
           temperatureMax,
           humidityMin,
           humidityMax,
-          // Các trường khác không được thêm vì không có trong schema configuration
-          // autoMode, pumpWaterSpeed, light, wateringSchedule, lightSchedule không có trong schema
           createdAt: new Date(), // Đảm bảo thời gian tạo mới
+          // Thêm mối quan hệ với user
+          user: {
+            connect: {
+              id: userId
+            }
+          }
         }
       });
       

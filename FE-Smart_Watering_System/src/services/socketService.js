@@ -1,9 +1,11 @@
 import { io } from 'socket.io-client';
 
 // URL của WebSocket server
-// const SOCKET_URL = 'http://localhost:3000'; // Địa chỉ backend Node.js server
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const SOCKET_URL = API_BASE_URL; // Sử dụng cùng URL với API để đảm bảo tính nhất quán
 
-const SOCKET_URL = import.meta.env.VITE_API_URL; // Địa chỉ backend Node.js server
+// Ghi log URL để debug
+console.log('Connecting to Socket.IO using URL:', SOCKET_URL);
 
 class SocketService {
   constructor() {
@@ -16,6 +18,8 @@ class SocketService {
     this.userId = null;
     this.reconnectInterval = null;
     this.heartbeatInterval = null;
+    this.connectAttempts = 0;
+    this.maxConnectAttempts = 5;
   }
 
   // Kết nối đến WebSocket server
@@ -25,35 +29,51 @@ class SocketService {
       return this.socket;
     }
 
+    // Giới hạn số lần thử kết nối
+    if (this.connectAttempts >= this.maxConnectAttempts) {
+      console.warn(`Reached maximum connection attempts (${this.maxConnectAttempts}). Stopping reconnection.`);
+      return null;
+    }
+    
+    this.connectAttempts++;
+
     // Giải phóng kết nối cũ nếu có
     if (this.socket) {
       this.socket.disconnect();
     }
 
-    console.log('Connecting to WebSocket server at:', SOCKET_URL);
+    console.log(`Connecting to WebSocket server at: ${SOCKET_URL} (Attempt ${this.connectAttempts}/${this.maxConnectAttempts})`);
 
     // Lấy token từ localStorage
     const token = localStorage.getItem('token');
 
     // Khởi tạo kết nối Socket.IO với token xác thực
-    this.socket = io(SOCKET_URL, {
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 20000,
-      autoConnect: true,
-      forceNew: true,
-      transports: ['websocket', 'polling'],
-      upgrade: true,
-      auth: {
-        token
-      }
-    });
+    try {
+      this.socket = io(SOCKET_URL, {
+        reconnectionAttempts: 3,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 10000, // Giảm timeout để phát hiện lỗi nhanh hơn
+        autoConnect: true,
+        forceNew: true,
+        transports: ['websocket', 'polling'],
+        upgrade: true,
+        auth: {
+          token
+        }
+      });
+    } catch (error) {
+      console.error('Error initializing socket connection:', error);
+      return null;
+    }
 
     // Xử lý sự kiện khi kết nối thành công
     this.socket.on('connect', () => {
       console.log('Connected to WebSocket server!', this.socket.id);
       this.isConnected = true;
+      
+      // Reset số lần thử kết nối khi kết nối thành công
+      this.connectAttempts = 0;
       
       // Đăng ký vào room của user nếu userId đã được thiết lập
       this.joinUserRoom();
@@ -78,6 +98,14 @@ class SocketService {
       // Thông báo cho tất cả listeners rằng kết nối đã mất
       if (this.listeners['disconnect']) {
         this.listeners['disconnect'].forEach(callback => callback(reason));
+      }
+      
+      // Tự động kết nối lại sau 5 giây nếu không phải do chủ ý ngắt kết nối
+      if (reason !== 'io client disconnect') {
+        setTimeout(() => {
+          console.log('Attempting to reconnect after disconnect...');
+          this.reconnect();
+        }, 5000);
       }
     });
 
@@ -113,6 +141,11 @@ class SocketService {
       // Thông báo lỗi kết nối
       if (this.listeners['error']) {
         this.listeners['error'].forEach(callback => callback(error));
+      }
+      
+      // Nếu không thể kết nối, chạy ở chế độ offline và thử lại sau
+      if (this.connectAttempts >= this.maxConnectAttempts) {
+        console.warn('Maximum connection attempts reached, running in offline mode');
       }
     });
     
@@ -267,9 +300,56 @@ class SocketService {
   
   // Kết nối lại
   reconnect() {
-    console.log('Attempting to reconnect...');
-    this.disconnect();
-    return this.connect();
+    console.log('Attempting to reconnect socket...');
+    
+    // Xóa bất kỳ interval nào đang chạy
+    if (this.reconnectInterval) {
+      clearInterval(this.reconnectInterval);
+      this.reconnectInterval = null;
+    }
+    
+    // Ngắt kết nối hiện tại nếu có
+    if (this.socket) {
+      try {
+        this.socket.disconnect();
+      } catch (error) {
+        console.error('Error disconnecting socket:', error);
+      }
+      this.socket = null;
+    }
+    
+    // Đặt lại trạng thái
+    this.isConnected = false;
+    
+    // Thử kết nối lại
+    const socket = this.connect();
+    
+    // Nếu không thể kết nối lại ngay, thiết lập interval để thử lại
+    if (!socket && this.connectAttempts < this.maxConnectAttempts) {
+      this.reconnectInterval = setInterval(() => {
+        console.log('Reconnect interval triggered');
+        
+        // Nếu đã kết nối, xóa interval
+        if (this.isConnected) {
+          console.log('Already connected, clearing reconnect interval');
+          clearInterval(this.reconnectInterval);
+          this.reconnectInterval = null;
+          return;
+        }
+        
+        // Thử kết nối lại
+        this.connect();
+        
+        // Nếu đã đạt số lần thử lại tối đa, xóa interval
+        if (this.connectAttempts >= this.maxConnectAttempts) {
+          console.warn('Maximum reconnection attempts reached, stopping reconnect interval');
+          clearInterval(this.reconnectInterval);
+          this.reconnectInterval = null;
+        }
+      }, 10000); // Thử lại mỗi 10 giây
+    }
+    
+    return socket;
   }
 }
 
