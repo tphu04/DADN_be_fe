@@ -15,7 +15,7 @@ const app = express();
 
 // ✅ Danh sách origin được phép (bao gồm cả FE local và FE Vercel)
 const allowedOrigins = [
-    'https://fesmartwater.onrender.com'
+    'https://smart-watering-system.vercel.app'
 ];
 
 // ✅ Cấu hình CORS động theo origin
@@ -61,10 +61,10 @@ app.use((err, req, res, next) => {
 });
 
 // ✅ Serve frontend (nếu build chung FE ở server này, còn nếu Vercel thì đoạn này sẽ bỏ đi)
-app.use(express.static(path.join(__dirname, '../../FE-Smart_Watering_System/dist')));
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../../FE-Smart_Watering_System/dist/index.html'));
-});
+// app.use(express.static(path.join(__dirname, '../../FE-Smart_Watering_System/dist')));
+// app.get('*', (req, res) => {
+//     res.sendFile(path.join(__dirname, '../../FE-Smart_Watering_System/dist/index.html'));
+// });
 
 // ✅ Handle 404
 app.use((req, res) => {
