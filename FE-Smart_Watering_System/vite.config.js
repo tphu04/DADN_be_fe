@@ -6,5 +6,8 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: 'dist' // Mặc định là 'dist'
+  },
+  server: {
+    historyApiFallback: true
   }
 })
