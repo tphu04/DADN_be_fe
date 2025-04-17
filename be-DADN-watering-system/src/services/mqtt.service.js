@@ -26,7 +26,7 @@ class MQTTService {
 
         // Khởi tạo kết nối MQTT mặc định
         try {
-            this.client = mqtt.connect(`mqtt://${this.username}:${this.password}@${this.broker}`, {
+            this.client = mqtt.connect(`mqtts://${this.username}:${this.password}@${this.broker}`, {
                 clientId: 'backend_' + Math.random().toString(16).substring(2, 8),
                 clean: true,
                 connectTimeout: 30000,
