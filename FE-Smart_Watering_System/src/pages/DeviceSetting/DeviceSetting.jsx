@@ -27,6 +27,18 @@ const DeviceSetting = () => {
   const refreshIntervalRef = useRef(null);
   const [recentlyUpdatedDevices, setRecentlyUpdatedDevices] = useState([]);
 
+  // Kiểm tra tài khoản đã được chấp nhận chưa
+  const hasPermission = user && user.isAccepted === true;
+
+  // Hàm kiểm tra quyền và hiển thị thông báo
+  const checkPermission = () => {
+    if (!hasPermission) {
+      message.warning("Your account is pending approval. Some features are restricted until an admin approves your account");
+      return false;
+    }
+    return true;
+  };
+
   // Fetch danh sách thiết bị khi component mount
   useEffect(() => {
     fetchDevices();
@@ -176,8 +188,7 @@ const DeviceSetting = () => {
   };
 
   const showAddModal = () => {
-    if (!user || !user.isAccepted) {
-      message.error("Tài khoản của bạn chưa được chấp nhận. Vui lòng liên hệ quản trị viên.");
+    if (!checkPermission()) {
       return;
     }
 
@@ -188,6 +199,10 @@ const DeviceSetting = () => {
   };
 
   const showEditModal = (device) => {
+    if (!checkPermission()) {
+      return;
+    }
+
     setEditingDevice(device);
     setModalTitle(`Chỉnh sửa thiết bị: ${device.deviceCode}`);
 
@@ -240,7 +255,7 @@ const DeviceSetting = () => {
         }
       } else {
         // Verify user is accepted before adding a device
-        if (!user || !user.isAccepted) {
+        if (!hasPermission) {
           message.error("Tài khoản của bạn chưa được chấp nhận. Vui lòng liên hệ quản trị viên.");
           setModalVisible(false);
           return;
@@ -282,26 +297,25 @@ const DeviceSetting = () => {
   };
 
   const handleDelete = async (deviceId) => {
+    if (!checkPermission()) {
+      return;
+    }
+
     try {
-      const response = await axiosInstance.delete(`/devices/${deviceId}`);
-      if (response.data.success) {
+      setLoading(true);
+      const response = await DeviceServices.deleteDevice(deviceId);
+      
+      if (response.success) {
         message.success("Xóa thiết bị thành công");
-
-        // Cập nhật danh sách thiết bị
-        fetchDevices();
-
-        // Xóa trạng thái kết nối của thiết bị đã xóa
-        setDeviceConnectionStatus((prev) => {
-          const newStatus = { ...prev };
-          delete newStatus[deviceId];
-          return newStatus;
-        });
+        fetchDevices(); // Refresh danh sách thiết bị
       } else {
-        message.error(response.data.message || "Xóa thiết bị thất bại");
+        message.error(response.message || "Xóa thiết bị thất bại");
       }
     } catch (error) {
       console.error("Error deleting device:", error);
-      message.error("Lỗi khi xóa thiết bị");
+      message.error("Đã xảy ra lỗi khi xóa thiết bị");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -355,36 +369,43 @@ const DeviceSetting = () => {
       key: "action",
       render: (_, record) => (
         <Space size="small">
-          <Link to={`/config/${record.id}`}>
-            <Button
-              type="primary"
-              size="small"
-              icon={<SettingOutlined />}
-              title="Cài đặt cấu hình"
-            />
-          </Link>
+          <Tooltip title={!hasPermission ? "Tài khoản đang chờ phê duyệt" : "Cài đặt cấu hình"}>
+            <Link to={hasPermission ? `/config/${record.id}` : "#"} onClick={(e) => !hasPermission && e.preventDefault()}>
+              <Button
+                type="primary"
+                size="small"
+                icon={<SettingOutlined />}
+                disabled={!hasPermission}
+              />
+            </Link>
+          </Tooltip>
 
-          <Button
-            type="default"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => showEditModal(record)}
-            title="Chỉnh sửa"
-          />
-
-          <Popconfirm
-            title="Bạn có chắc muốn xóa thiết bị này?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Có"
-            cancelText="Không"
-          >
+          <Tooltip title={!hasPermission ? "Tài khoản đang chờ phê duyệt" : "Chỉnh sửa thiết bị"}>
             <Button
-              type="danger"
+              type="default"
               size="small"
-              icon={<DeleteOutlined />}
-              title="Xóa"
+              icon={<EditOutlined />}
+              onClick={() => showEditModal(record)}
+              disabled={!hasPermission}
             />
-          </Popconfirm>
+          </Tooltip>
+
+          <Tooltip title={!hasPermission ? "Tài khoản đang chờ phê duyệt" : "Xóa thiết bị"}>
+            <Popconfirm
+              title="Bạn có chắc muốn xóa thiết bị này?"
+              onConfirm={() => handleDelete(record.id)}
+              okText="Có"
+              cancelText="Không"
+              disabled={!hasPermission}
+            >
+              <Button
+                type="danger"
+                size="small"
+                icon={<DeleteOutlined />}
+                disabled={!hasPermission}
+              />
+            </Popconfirm>
+          </Tooltip>
         </Space>
       ),
     },
@@ -395,29 +416,20 @@ const DeviceSetting = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Quản lý thiết bị</h1>
         <div className="flex space-x-2">
-          {user && !!user.isAccepted ? (
+          <Tooltip title={!hasPermission ? "Tài khoản đang chờ phê duyệt" : "Thêm thiết bị mới"}>
             <Button
               type="primary"
               icon={<PlusOutlined />}
               onClick={showAddModal}
+              disabled={!hasPermission}
             >
               Thêm thiết bị
             </Button>
-          ) : (
-            <Tooltip title="Tài khoản của bạn chưa được chấp nhận. Vui lòng liên hệ quản trị viên.">
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                disabled
-              >
-                Thêm thiết bị
-              </Button>
-            </Tooltip>
-          )}
+          </Tooltip>
         </div>
       </div>
 
-      {user && !user.isAccepted && (
+      {!hasPermission && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
           <div className="flex">
             <div className="flex-shrink-0">
@@ -425,7 +437,7 @@ const DeviceSetting = () => {
             </div>
             <div className="ml-3">
               <p className="text-sm text-yellow-700">
-                Tài khoản của bạn chưa được chấp nhận. Bạn không thể thêm thiết bị mới cho đến khi được quản trị viên phê duyệt.
+                Tài khoản của bạn đang chờ phê duyệt. Bạn có thể xem thiết bị nhưng không thể thêm, sửa hoặc xóa cho đến khi được quản trị viên duyệt.
               </p>
             </div>
           </div>
@@ -492,139 +504,6 @@ const DeviceSetting = () => {
           <Form.Item name="description" label="Mô tả">
             <TextArea rows={4} placeholder="Nhập mô tả về thiết bị (tùy chọn)" />
           </Form.Item>
-
-
-
-          {/* Phần chỉnh sửa feeds - hiển thị khi edit thiết bị */}
-          {editingDevice && editingDevice.feed && editingDevice.feed.length > 0 && (
-            <div className="mb-4">
-              <h3 className="text-base font-semibold mb-2">
-                Chỉnh sửa feeds của thiết bị
-              </h3>
-              <Card size="small" className="mb-2">
-                <p className="text-sm text-gray-500 mb-1">
-                  Chỉnh sửa thông tin feeds của thiết bị.
-                </p>
-              </Card>
-
-              <Form.List name="feeds">
-                {(fields) => (
-                  <div className="space-y-4 mt-2">
-                    {fields.map((field, index) => (
-                      <Card key={field.key} size="small" className="bg-gray-50">
-                        <Row gutter={16}>
-                          <Col span={11}>
-                            <Form.Item
-                              label="Tên feed"
-                              name={[field.name, 'name']}
-                              rules={[{ required: true, message: 'Vui lòng nhập tên feed' }]}
-                            >
-                              <Input placeholder="Tên feed (Ví dụ: Nhiệt độ)" />
-                            </Form.Item>
-                          </Col>
-                          <Col span={11}>
-                            <Form.Item
-                              label="FeedKey"
-                              name={[field.name, 'feedKey']}
-                              rules={[{ required: true, message: 'Vui lòng nhập feedKey' }]}
-                            >
-                              <Input placeholder="FeedKey (Ví dụ: temperature)" />
-                            </Form.Item>
-                          </Col>
-                        </Row>
-
-                        {/* Hidden field để lưu id của feed */}
-                        <Form.Item
-                          name={[field.name, 'id']}
-                          hidden
-                        >
-                          <Input />
-                        </Form.Item>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </Form.List>
-            </div>
-          )}
-
-          {/* Phần thêm feeds - chỉ hiển thị khi thêm thiết bị mới */}
-          {!editingDevice && (
-            <div className="mb-4">
-              <h3 className="text-base font-semibold mb-2">
-                Danh sách feeds <span className="text-red-500">*</span>
-              </h3>
-              <Card size="small" className="mb-2">
-                <p className="text-sm text-gray-500 mb-1">
-                  Mỗi thiết bị cần có ít nhất một feed để nhận dữ liệu từ MQTT.
-                </p>
-                <p className="text-sm text-gray-500">
-                  Ví dụ: Nếu MQTT topic là "username/feeds/temperature",
-                  thì feedKey là "temperature"
-                </p>
-              </Card>
-
-              <Form.List name="feeds" rules={[
-                {
-                  validator: async (_, feeds) => {
-                    if (!feeds || feeds.length < 1) {
-                      return Promise.reject(new Error('Cần thêm ít nhất một feed'));
-                    }
-                    return Promise.resolve();
-                  },
-                },
-              ]}>
-                {(fields, { add, remove }, { errors }) => (
-                  <>
-                    {fields.map(({ key, name, ...restField }) => (
-                      <Row key={key} gutter={16} align="middle" className="mb-2">
-                        <Col span={9}>
-                          <Form.Item
-                            {...restField}
-                            name={[name, 'name']}
-                            rules={[{ required: true, message: 'Nhập tên feed' }]}
-                            className="mb-0"
-                          >
-                            <Input placeholder="Tên feed (Ví dụ: Nhiệt độ)" />
-                          </Form.Item>
-                        </Col>
-                        <Col span={9}>
-                          <Form.Item
-                            {...restField}
-                            name={[name, 'feedKey']}
-                            rules={[{ required: true, message: 'Nhập feedKey' }]}
-                            className="mb-0"
-                          >
-                            <Input placeholder="FeedKey (Ví dụ: temperature)" />
-                          </Form.Item>
-                        </Col>
-                        <Col span={3}>
-                          <Button
-                            type="text"
-                            danger
-                            icon={<MinusCircleOutlined />}
-                            onClick={() => {
-                              if (fields.length > 1) {
-                                remove(name);
-                              } else {
-                                message.warning('Cần ít nhất một feed');
-                              }
-                            }}
-                          />
-                        </Col>
-                      </Row>
-                    ))}
-                    <Form.Item className="mt-2">
-                      <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                        Thêm feed
-                      </Button>
-                      <Form.ErrorList errors={errors} />
-                    </Form.Item>
-                  </>
-                )}
-              </Form.List>
-            </div>
-          )}
         </Form>
       </Modal>
     </div>

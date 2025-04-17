@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { message, Tabs, Select, Card, Switch, Form, Input, Slider, Button } from "antd";
-import { SaveOutlined, SettingOutlined, BulbOutlined, WifiOutlined, SyncOutlined } from "@ant-design/icons";
+import { message, Tabs, Select, Card, Switch, Form, Input, Slider, Button, Tooltip, Alert } from "antd";
+import { SaveOutlined, SettingOutlined, BulbOutlined, WifiOutlined, SyncOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import axios from "axios";
 import { useParams, useNavigate } from "react-router-dom";
 import API_ENDPOINTS from "../../services/ApiEndpoints";
@@ -28,6 +28,18 @@ const ConfigDevice = () => {
   
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  // Kiểm tra tài khoản đã được chấp nhận chưa
+  const hasPermission = user && user.isAccepted === true;
+
+  // Hàm kiểm tra quyền và hiển thị thông báo
+  const checkPermission = () => {
+    if (!hasPermission) {
+      message.warning("Your account is pending approval. Some features are restricted until an admin approves your account");
+      return false;
+    }
+    return true;
+  };
 
   // Lấy cấu hình hiện tại từ API khi component mount
   useEffect(() => {
@@ -87,6 +99,10 @@ const ConfigDevice = () => {
   };
 
   const handleSaveAll = async () => {
+    if (!checkPermission()) {
+      return;
+    }
+
     try {
       setLoading(true);
       
@@ -121,6 +137,10 @@ const ConfigDevice = () => {
   };
 
   const handleResetToDefault = () => {
+    if (!checkPermission()) {
+      return;
+    }
+    
     setConfigs(defaultConfig);
     toast.info("Đã khôi phục về cấu hình mặc định");
   };
@@ -132,6 +152,17 @@ const ConfigDevice = () => {
           Cấu hình thiết bị cảm biến
         </h1>
       </div>
+
+      {!hasPermission && (
+        <Alert
+          message="Tài khoản đang chờ phê duyệt"
+          description="Tài khoản của bạn đang chờ phê duyệt. Bạn có thể xem cấu hình nhưng không thể thay đổi cho đến khi được quản trị viên duyệt."
+          type="warning"
+          showIcon
+          icon={<ExclamationCircleOutlined />}
+          className="mb-6"
+        />
+      )}
 
       <Card title="Cấu hình ngưỡng cảm biến" className="mb-6" loading={fetchingConfig}>
         <div className="bg-blue-50 p-3 rounded border border-blue-200 mb-4">
@@ -147,56 +178,69 @@ const ConfigDevice = () => {
           <SliderCard
             title="Ngưỡng độ ẩm đất (%)"
             value={configs.soilMoisture}
-            onChange={(value) => handleRangeChange('soilMoisture', value)}
+            onChange={(value) => hasPermission && handleRangeChange('soilMoisture', value)}
             min={0}
             max={100}
             step={1}
+            unit="%"
+            maxLimit={100}
             description="Thiết lập ngưỡng độ ẩm đất tối thiểu và tối đa. Nếu độ ẩm thấp hơn ngưỡng tối thiểu, máy bơm sẽ được kích hoạt. Nếu cao hơn ngưỡng tối đa, đèn sẽ được kích hoạt."
+            disabled={!hasPermission}
           />
 
           {/* Nhiệt độ */}
           <SliderCard 
             title="Ngưỡng nhiệt độ (°C)"
             value={configs.temperature}
-            onChange={(value) => handleRangeChange('temperature', value)}
+            onChange={(value) => hasPermission && handleRangeChange('temperature', value)}
             min={0}
             max={50}
             step={1}
+            unit="°C"
+            maxLimit={50}
             description="Thiết lập ngưỡng nhiệt độ tối thiểu và tối đa. Nếu nhiệt độ thấp hơn ngưỡng tối thiểu, đèn sẽ được kích hoạt. Nếu cao hơn ngưỡng tối đa, máy bơm sẽ được kích hoạt."
+            disabled={!hasPermission}
           />
 
           {/* Độ ẩm không khí */}
           <SliderCard 
             title="Ngưỡng độ ẩm không khí (%)"
             value={configs.airHumidity}
-            onChange={(value) => handleRangeChange('airHumidity', value)}
+            onChange={(value) => hasPermission && handleRangeChange('airHumidity', value)}
             min={0}
             max={100}
             step={1}
+            unit="%"
+            maxLimit={100}
             description="Thiết lập ngưỡng độ ẩm không khí tối thiểu và tối đa. Nếu độ ẩm thấp hơn ngưỡng tối thiểu, máy bơm sẽ được kích hoạt. Nếu cao hơn ngưỡng tối đa, đèn sẽ được kích hoạt."
+            disabled={!hasPermission}
           />
         </div>
       </Card>
 
       <div className="mt-10 flex flex-wrap gap-3 justify-center md:justify-end">
-        <Button
-          onClick={handleResetToDefault}
-          className="min-w-[120px]"
-          disabled={loading || fetchingConfig}
-        >
-          Khôi phục mặc định
-        </Button>
+        <Tooltip title={!hasPermission ? "Tài khoản đang chờ phê duyệt" : "Khôi phục về cấu hình mặc định"}>
+          <Button
+            onClick={handleResetToDefault}
+            className="min-w-[120px]"
+            disabled={loading || fetchingConfig || !hasPermission}
+          >
+            Khôi phục mặc định
+          </Button>
+        </Tooltip>
         
-        <Button
-          type="primary"
-          icon={<SaveOutlined />}
-          onClick={handleSaveAll}
-          loading={loading}
-          disabled={loading || fetchingConfig}
-          className="min-w-[150px]"
-        >
-          {loading ? "Đang lưu..." : "Lưu cấu hình"}
-        </Button>
+        <Tooltip title={!hasPermission ? "Tài khoản đang chờ phê duyệt" : "Lưu cấu hình hiện tại"}>
+          <Button
+            type="primary"
+            icon={<SaveOutlined />}
+            onClick={handleSaveAll}
+            loading={loading}
+            disabled={loading || fetchingConfig || !hasPermission}
+            className="min-w-[150px]"
+          >
+            {loading ? "Đang lưu..." : "Lưu cấu hình"}
+          </Button>
+        </Tooltip>
       </div>
     </div>
   );

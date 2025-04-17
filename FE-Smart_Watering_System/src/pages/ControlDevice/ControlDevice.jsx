@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { Card, Table, Tag, Button, Space } from "antd";
-import { WifiOutlined, ReloadOutlined, SettingOutlined, InfoCircleOutlined } from "@ant-design/icons";
+import { Card, Table, Tag, Button, Space, Tooltip, Alert, message } from "antd";
+import { WifiOutlined, ReloadOutlined, SettingOutlined, InfoCircleOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import {
   ActiveSchedulesList,
@@ -11,9 +11,23 @@ import {
 import { useDeviceControl } from "../../hooks/useDeviceControl";
 import { useSchedules } from "../../hooks/useSchedules";
 import { useDeviceConfig } from "../../hooks/useDeviceConfig";
+import { useAuth } from "../../context/AuthContext";
 
 const ControlDevice = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Kiểm tra tài khoản đã được chấp nhận chưa
+  const hasPermission = user && user.isAccepted === true;
+
+  // Hàm kiểm tra quyền và hiển thị thông báo
+  const checkPermission = () => {
+    if (!hasPermission) {
+      message.warning("Your account is pending approval. Some features are restricted until an admin approves your account");
+      return false;
+    }
+    return true;
+  };
 
   // Custom hooks
   const {
@@ -74,8 +88,12 @@ const ControlDevice = () => {
         isDeviceLoading={isDeviceLoading}
         pumpSpeed={pumpSpeed}
         isInAutoMode={isInAutoMode}
-        onSpeedChange={handlePumpSpeedChange}
+        onSpeedChange={(deviceId, value) => {
+          if (!checkPermission()) return;
+          handlePumpSpeedChange(deviceId, value);
+        }}
         isDeviceOnline={isDeviceOnline}
+        disabled={!hasPermission}
       />
     );
   };
@@ -97,20 +115,30 @@ const ControlDevice = () => {
         isDeviceLoading={isDeviceLoading}
         isLightOn={lightValue}
         isInAutoMode={isInAutoMode}
-        onToggleLight={handleToggleLight}
+        onToggleLight={(deviceId) => {
+          if (!checkPermission()) return;
+          handleToggleLight(deviceId);
+        }}
         isDeviceOnline={isDeviceOnline}
+        disabled={!hasPermission}
       />
     );
   };
 
   const renderConfigButton = (device) => (
-    <Button
-      size="small"
-      icon={<SettingOutlined />}
-      onClick={() => handleSelectDevice(device)}
-    >
-      Cấu hình
-    </Button>
+    <Tooltip title={!hasPermission ? "Tài khoản đang chờ phê duyệt" : "Cấu hình thiết bị"}>
+      <Button
+        size="small"
+        icon={<SettingOutlined />}
+        onClick={() => {
+          if (!checkPermission()) return;
+          handleSelectDevice(device);
+        }}
+        disabled={!hasPermission}
+      >
+        Cấu hình
+      </Button>
+    </Tooltip>
   );
 
   // Table columns configuration
@@ -177,6 +205,17 @@ const ControlDevice = () => {
         <p className="text-gray-600">Bật/tắt & cấu hình tự động hóa máy bơm và đèn</p>
       </div>
 
+      {!hasPermission && (
+        <Alert
+          message="Tài khoản đang chờ phê duyệt"
+          description="Tài khoản của bạn đang chờ phê duyệt. Bạn có thể xem thiết bị nhưng không thể điều khiển cho đến khi được quản trị viên duyệt."
+          type="warning"
+          showIcon
+          icon={<ExclamationCircleOutlined />}
+          className="mb-6"
+        />
+      )}
+
       {/* Device list */}
       <Card title="Điều khiển thiết bị" className="mb-6 shadow-md">
         <Table
@@ -196,8 +235,15 @@ const ControlDevice = () => {
       >
         <ActiveSchedulesList
           schedules={schedules}
-          onToggle={handleToggleSchedule}
-          onDelete={handleDeleteSchedule}
+          onToggle={(schedule) => {
+            if (!checkPermission()) return;
+            handleToggleSchedule(schedule);
+          }}
+          onDelete={(schedule) => {
+            if (!checkPermission()) return;
+            handleDeleteSchedule(schedule);
+          }}
+          disabled={!hasPermission}
         />
       </Card>
 
@@ -207,10 +253,20 @@ const ControlDevice = () => {
           device={selectedDevice}
           config={deviceConfig}
           onClose={handleCloseConfig}
-          onAutoModeChange={handleAutoModeChange}
-          onScheduleChange={handleScheduleChange}
-          onSave={handleSaveConfig}
+          onAutoModeChange={(enabled) => {
+            if (!checkPermission()) return;
+            handleAutoModeChange(enabled);
+          }}
+          onScheduleChange={(scheduleType, data) => {
+            if (!checkPermission()) return;
+            handleScheduleChange(scheduleType, data);
+          }}
+          onSave={() => {
+            if (!checkPermission()) return;
+            handleSaveConfig();
+          }}
           saving={savingConfig}
+          disabled={!hasPermission}
         />
       )}
     </div>

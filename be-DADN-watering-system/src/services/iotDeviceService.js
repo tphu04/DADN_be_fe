@@ -310,12 +310,17 @@ class IoTDeviceService {
                     where: { deviceId: parseInt(id) }
                 }),
                 
-                // 7. Xóa lịch trình
-                prisma.scheduled.deleteMany({
+                // 7. Xóa cấu hình
+                prisma.configuration.deleteMany({
                     where: { deviceId: parseInt(id) }
                 }),
                 
-                // 8. Cuối cùng xóa thiết bị
+                // 8. Xóa lịch sử cấu hình
+                prisma.deviceConfigHistory.deleteMany({
+                    where: { deviceId: parseInt(id) }
+                }),
+                
+                // 9. Cuối cùng xóa thiết bị
                 prisma.iotdevice.delete({
                     where: { id: parseInt(id) }
                 })

@@ -2,14 +2,16 @@ import { Slider, InputNumber } from "antd";
 
 const SliderCard = ({
   title,
-  unit,
-  maxLimit,
+  unit = "",
+  maxLimit = 100,
   value,
   onChange,
   marks,
-  step,
+  step = 1,
   hideInput,
   isSingleValue = false,
+  description,
+  disabled = false,
 }) => {
   const handleChange = (val) => {
     if (isSingleValue) {
@@ -27,9 +29,19 @@ const SliderCard = ({
     onChange({ ...value, max: val });
   };
 
+  // Hàm định dạng giá trị cho tooltip
+  const formatTooltip = (val) => {
+    if (val === undefined || val === null) return "";
+    return `${val}${unit}`;
+  };
+
   return (
     <div className="rounded-2xl shadow-lg p-6 bg-white transition hover:shadow-xl">
       <h2 className="text-lg font-semibold text-gray-800 mb-4">{title}</h2>
+      
+      {description && (
+        <p className="text-sm text-gray-600 mb-4">{description}</p>
+      )}
 
       {!isSingleValue && (
         <>
@@ -43,6 +55,7 @@ const SliderCard = ({
                   value={value.min}
                   onChange={handleMinChange}
                   className="w-[60px]"
+                  disabled={disabled}
                 />
                 {unit}
               </>
@@ -53,11 +66,12 @@ const SliderCard = ({
             max={maxLimit}
             value={value.min}
             onChange={handleMinChange}
-            tooltip={{ formatter: (val) => `${val}${unit}` }}
+            tooltip={{ formatter: formatTooltip }}
             trackStyle={{ backgroundColor: "#3b82f6" }}
             handleStyle={{ borderColor: "#3b82f6" }}
             marks={marks}
             step={step}
+            disabled={disabled}
           />
 
           <div className="text-sm text-gray-700 mb-1 flex items-center gap-2">
@@ -70,6 +84,7 @@ const SliderCard = ({
                   value={value.max}
                   onChange={handleMaxChange}
                   className="w-[60px]"
+                  disabled={disabled}
                 />
                 {unit}
               </>
@@ -80,11 +95,12 @@ const SliderCard = ({
             max={maxLimit}
             value={value.max}
             onChange={handleMaxChange}
-            tooltip={{ formatter: (val) => `${val}${unit}` }}
+            tooltip={{ formatter: formatTooltip }}
             trackStyle={{ backgroundColor: "#3b82f6" }}
             handleStyle={{ borderColor: "#3b82f6" }}
             marks={marks}
             step={step}
+            disabled={disabled}
           />
         </>
       )}
@@ -100,6 +116,7 @@ const SliderCard = ({
                 value={value}
                 onChange={onChange}
                 className="w-[60px]"
+                disabled={disabled}
               />
               {unit}
             </div>
@@ -109,11 +126,12 @@ const SliderCard = ({
             max={maxLimit}
             value={value}
             onChange={handleChange}
-            tooltip={{ formatter: (val) => `${val}${unit}` }}
+            tooltip={{ formatter: formatTooltip }}
             trackStyle={{ backgroundColor: "#3b82f6" }}
             handleStyle={{ borderColor: "#3b82f6" }}
             marks={marks}
             step={step}
+            disabled={disabled}
           />
         </>
       )}

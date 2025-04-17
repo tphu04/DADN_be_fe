@@ -365,7 +365,7 @@ const deviceController = {
             const { description, feeds } = req.body;
             
             // Kiểm tra thiết bị có tồn tại không
-            // Lưu ý: Đã loại bỏ kiểm tra configuration vì không có mối quan hệ nào trong model
+            // Lưu ý: Đã loại bỏ kiểm tra configuration vì không có mối quan hệ này trong model
             const existingDevice = await prisma.iotdevice.findFirst({
                 where: {
                     id: deviceId
@@ -526,11 +526,9 @@ const deviceController = {
                     }
                     
                     // 4. Xóa configuration liên quan
-                    // Note: Configuration model does not have deviceId field
-                    // This code was causing an error and has been removed
-                    // await prisma.configuration.deleteMany({
-                    //     where: { deviceId }
-                    // });
+                    await prisma.configuration.deleteMany({
+                        where: { deviceId }
+                    });
                     
                     // 5. Cuối cùng xóa thiết bị
                     await prisma.iotdevice.delete({

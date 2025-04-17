@@ -8,8 +8,7 @@ import {
   createDevice, 
   updateDevice, 
   deleteDevice, 
-  getAdminProfile,
-  getAllSystemUsers
+  getAdminProfile
 } from '../../services/AdminServices';
 
 const { Option } = Select;
@@ -24,7 +23,6 @@ const deviceTypes = [
 
 const DeviceManagement = () => {
   const [devices, setDevices] = useState([]);
-  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deviceModalVisible, setDeviceModalVisible] = useState(false);
   const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
@@ -90,23 +88,6 @@ const DeviceManagement = () => {
         console.error('Failed to fetch devices:', devicesResponse);
         message.error(devicesResponse?.message || 'Failed to fetch devices');
       }
-      
-      // Fetch users
-      const usersResponse = await getAllSystemUsers();
-      if (usersResponse?.success) {
-        // Filter out admins and only include accepted users
-        const userData = usersResponse.data || [];
-        const filteredUsers = userData.filter(user => 
-          user && user.isAccepted && 
-          !user.isAdmin && 
-          user.role !== 'ADMIN' && 
-          user.userType !== 'admin'
-        );
-        setUsers(filteredUsers);
-      } else {
-        console.error('Failed to fetch users:', usersResponse);
-        message.error(usersResponse?.message || 'Failed to fetch users');
-      }
     } catch (error) {
       console.error('Error fetching data:', error);
       handleAuthError(error);
@@ -132,17 +113,10 @@ const DeviceManagement = () => {
     setSelectedDevice(device);
     setModalMode('edit');
     
-    // Find the user associated with this device based on configuration
-    let userForDevice = null;
-    if (device.userId && Array.isArray(users)) {
-      userForDevice = users.find(u => u && u.id === device.userId);
-    }
-      
     deviceForm.setFieldsValue({
       deviceCode: device.deviceCode || '',
-      deviceName: device.deviceName || '',
       deviceType: device.deviceType || '',
-      userId: device.userId || (userForDevice ? userForDevice.id : undefined)
+      description: device.description || ''
     });
     
     setDeviceModalVisible(true);
@@ -231,13 +205,7 @@ const DeviceManagement = () => {
       render: text => text || 'N/A'
     },
     {
-      title: 'Device Name',
-      dataIndex: 'deviceName',
-      key: 'deviceName',
-      render: text => text || 'N/A'
-    },
-    {
-      title: 'Type',
+      title: 'Device Type',
       dataIndex: 'deviceType',
       key: 'deviceType',
       render: (type) => {
@@ -247,14 +215,10 @@ const DeviceManagement = () => {
       }
     },
     {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (_, record) => (
-        <Tag color={isDeviceOnline(record) ? 'green' : 'red'}>
-          {isDeviceOnline(record) ? 'Online' : 'Offline'}
-        </Tag>
-      )
+      title: 'Description',
+      dataIndex: 'description',
+      key: 'description',
+      render: text => text || 'N/A'
     },
     {
       title: 'Actions',
@@ -285,21 +249,6 @@ const DeviceManagement = () => {
   // Kiểm tra key duy nhất cho mỗi record trước khi render
   const getDeviceKey = (device) => {
     return device && device.id ? `device-${device.id}` : `device-${Math.random()}`;
-  };
-
-  // Kiểm tra xem thiết bị có trực tuyến không dựa trên dữ liệu gần nhất
-  const isDeviceOnline = (device) => {
-    if (!device) return false;
-    
-    // Kiểm tra thời gian dữ liệu gần nhất
-    const lastDataTime = device.lastDataTime ? new Date(device.lastDataTime) : null;
-    if (!lastDataTime) return false;
-    
-    // Thiết bị được coi là trực tuyến nếu có dữ liệu trong vòng 5 phút
-    const fiveMinutesAgo = new Date();
-    fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
-    
-    return lastDataTime > fiveMinutesAgo;
   };
 
   return (
@@ -372,14 +321,6 @@ const DeviceManagement = () => {
           </Form.Item>
           
           <Form.Item
-            name="deviceName"
-            label="Device Name"
-            rules={[{ required: true, message: 'Please enter the device name' }]}
-          >
-            <Input placeholder="Enter device name" />
-          </Form.Item>
-          
-          <Form.Item
             name="deviceType"
             label="Device Type"
             rules={[{ required: true, message: 'Please select the device type' }]}
@@ -391,6 +332,12 @@ const DeviceManagement = () => {
             </Select>
           </Form.Item>
           
+          <Form.Item
+            name="description"
+            label="Description"
+          >
+            <Input.TextArea placeholder="Enter device description" />
+          </Form.Item>
         </Form>
       </Modal>
     </div>
