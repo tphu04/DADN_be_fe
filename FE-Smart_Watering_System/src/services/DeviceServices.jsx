@@ -193,7 +193,7 @@ const DeviceServices = {
       }
 
       // Log full URL for debugging
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const API_URL = import.meta.env.VITE_API_URL;
       const fullUrl = `${API_URL}/api/devices/${deviceId}/soil-moisture`;
       console.log('Full API URL:', fullUrl);
       
@@ -291,7 +291,7 @@ const DeviceServices = {
       }
 
       // Log full URL for debugging
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const API_URL = import.meta.env.VITE_API_URL;
       const fullUrl = `${API_URL}/api/devices/${deviceId}/pump-water`;
       console.log('Full API URL:', fullUrl);
       
