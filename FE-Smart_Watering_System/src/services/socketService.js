@@ -2,6 +2,7 @@ import { io } from 'socket.io-client';
 
 // URL của WebSocket server
 const API_BASE_URL = import.meta.env.VITE_API_URL;
+// const API_BASE_URL = 'http://localhost:3000';
 const SOCKET_URL = API_BASE_URL; // Sử dụng cùng URL với API để đảm bảo tính nhất quán
 
 // Ghi log URL để debug

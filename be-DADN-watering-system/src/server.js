@@ -8,41 +8,48 @@ const scheduleService = require('./services/schedule.service');
 const automationService = require('./services/automation.service');
 const http = require('http');
 const { Server } = require('socket.io');
+const path = require('path');
 const jwt = require('jsonwebtoken');
 
 const app = express();
 
-// Cấu hình CORS chi tiết
-// const allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000'];
-const allowedOrigins = ['https://smart-watering-system-frontend.vercel.app'];
-const corsOptions = {
-    origin: allowedOrigins,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+// ✅ Danh sách origin được phép (bao gồm cả FE local và FE Vercel)
+const allowedOrigins = [
+    'https://fesmartwater.onrender.com',
+];
+
+// ✅ Cấu hình CORS động theo origin
+const corsOptionsDelegate = function (req, callback) {
+    const origin = req.header('Origin');
+    const isAllowed = allowedOrigins.includes(origin);
+    callback(null, {
+        origin: isAllowed,
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization']
+    });
 };
+app.use(cors(corsOptionsDelegate));
 
-app.use(cors(corsOptions));
-
-// Log tất cả requests để debug
+// ✅ Log tất cả requests để debug (có origin luôn)
 app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
     next();
 });
 
-// Body parser middleware với giới hạn tăng lên
+// ✅ Body parser middleware
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Routes
+// ✅ Routes API
 app.use('/api', routes);
 
-// Thêm route test để kiểm tra server
+// ✅ Route test
 app.get('/test', (req, res) => {
     res.json({ message: 'Server is working!' });
 });
 
-// Error handling middleware
+// ✅ Error handler
 app.use((err, req, res, next) => {
     console.error('Global error handler:', err);
     res.status(500).json({
@@ -51,48 +58,36 @@ app.use((err, req, res, next) => {
     });
 });
 
-const path = require('path');
-
-// Serve static files từ React FE build
+// ✅ Serve frontend (nếu build chung FE ở server này, còn nếu Vercel thì đoạn này sẽ bỏ đi)
 app.use(express.static(path.join(__dirname, '../../FE-Smart_Watering_System/dist')));
-
-// Handle client-side routing
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../../FE-Smart_Watering_System/dist/index.html'));
 });
 
-// Handle 404
+// ✅ Handle 404
 app.use((req, res) => {
     res.status(404).json({ success: false, message: 'Route not found' });
 });
 
 const PORT = process.env.PORT || 3000;
-
-// Biến global để lưu trữ đối tượng Socket.IO
 let io;
-
-// Hàm để lấy đối tượng io từ các service khác
 const getIO = () => {
     if (!io) {
         throw new Error('Socket.IO chưa được khởi tạo');
     }
     return io;
 };
-
-// Export getIO để các module khác có thể sử dụng
 module.exports.getIO = getIO;
 
-// Initialize devices and start server
+// ✅ Start server chính
 async function startServer() {
     try {
-        // Đợi MQTT kết nối thành công trước
         console.log('Đang đợi kết nối MQTT...');
         await mqttService.waitForConnection(20000);
 
-        // Khởi tạo HTTP server
         const server = http.createServer(app);
 
-        // Cấu hình Socket.IO với CORS
+        // ✅ Socket.IO config chuẩn cho nhiều origin
         io = new Server(server, {
             cors: {
                 origin: allowedOrigins,
@@ -106,10 +101,8 @@ async function startServer() {
             allowEIO3: true
         });
 
-        // Xử lý kết nối Socket.IO
         io.on('connection', (socket) => {
             console.log('Client kết nối: ' + socket.id);
-
             socket.emit('connected', {
                 status: 'success',
                 socketId: socket.id,
@@ -125,7 +118,7 @@ async function startServer() {
             });
         });
 
-        // Khởi tạo các services
+        // ✅ Khởi tạo các service
         console.log('Bắt đầu khởi tạo thiết bị');
         await iotDeviceService.initializeDevices();
         await mqttService.subscribeToAllFeeds();
@@ -133,10 +126,10 @@ async function startServer() {
         automationService.setSocketIO(io);
         scheduleService.initScheduleService();
 
-        // Khởi động server
+        // ✅ Khởi động server
         server.listen(PORT, () => {
-            console.log(`Server đang chạy trên cổng ${PORT}`);
-            console.log(`CORS được cấu hình cho các origin:`, allowedOrigins);
+            console.log(`🚀 Server đang chạy tại cổng ${PORT}`);
+            console.log(`🌍 CORS cho phép các origin:`, allowedOrigins);
         });
     } catch (error) {
         console.error('Lỗi khởi động server:', error);
@@ -144,5 +137,4 @@ async function startServer() {
     }
 }
 
-// Start the server
 startServer();
