@@ -15,21 +15,23 @@ const app = express();
 
 // ✅ Danh sách origin được phép (bao gồm cả FE local và FE Vercel)
 const allowedOrigins = [
-    'https://fesmartwater.onrender.com',
+    'https://fesmartwater.onrender.com'
 ];
 
 // ✅ Cấu hình CORS động theo origin
-const corsOptionsDelegate = function (req, callback) {
-    const origin = req.header('Origin');
-    const isAllowed = allowedOrigins.includes(origin);
-    callback(null, {
-        origin: isAllowed,
-        credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization']
-    });
-};
-app.use(cors(corsOptionsDelegate));
+const corsOptions = {
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  };
+app.use(cors(corsOptions));
 
 // ✅ Log tất cả requests để debug (có origin luôn)
 app.use((req, res, next) => {
