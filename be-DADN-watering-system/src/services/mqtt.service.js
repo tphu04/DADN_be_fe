@@ -17,22 +17,35 @@ class MQTTService {
         this.io = null; // Biến để lưu trữ đối tượng Socket.IO
 
         // Lấy thông tin kết nối từ biến môi trường
-        this.username = process.env.MQTT_USERNAME;
-        this.password = process.env.MQTT_API_KEY;
-        this.broker = process.env.MQTT_BROKER ;
+        // this.username = process.env.MQTT_USERNAME;
+        // this.password = process.env.MQTT_API_KEY;
+        // this.broker = process.env.MQTT_BROKER ;
 
         // Hiển thị thông tin kết nối (che password)
         console.log(`🔌 Đang kết nối tới MQTT broker mặc định: mqtt://${this.username}:***@${this.broker}`);
 
         // Khởi tạo kết nối MQTT mặc định
         try {
-            this.client = mqtt.connect(`mqtt://${this.username}:${this.password}@${this.broker}`, {
-                clientId: 'backend_' + Math.random().toString(16).substring(2, 8),
+            this.client = mqtt.connect('mqtts://io.adafruit.com', {
+                username: process.env.ADAFRUIT_USERNAME,
+                password: process.env.ADAFRUIT_KEY,
+                clientId: 'backend_' + Date.now() + '_' + Math.random().toString(16).substring(2, 6),
                 clean: true,
+                reconnectPeriod: 10000,
                 connectTimeout: 30000,
-                reconnectPeriod: 5000,
-                keepalive: 60,
-                port: 1883 // Thêm port mặc định cho MQTT
+                keepalive: 60
+              });
+
+            this.client.on('close', () => {
+                console.warn('🚪 Kết nối MQTT đã bị đóng!');
+            });
+              
+            this.client.on('error', (err) => {
+                console.error('❌ Lỗi kết nối MQTT:', err.message);
+            });
+              
+            this.client.on('reconnect', () => {
+                console.log('🔁 Đang thử reconnect tới MQTT broker...');
             });
 
             // Thiết lập các event handlers
