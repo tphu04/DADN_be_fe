@@ -36,18 +36,6 @@ class MQTTService {
                 keepalive: 60
               });
 
-            // this.client.on('close', () => {
-            //     console.warn('🚪 Kết nối MQTT đã bị đóng!');
-            // });
-              
-            // this.client.on('error', (err) => {
-            //     console.error('❌ Lỗi kết nối MQTT:', err.message);
-            // });
-              
-            // this.client.on('reconnect', () => {
-            //     console.log('🔁 Đang thử reconnect tới MQTT broker...');
-            // });
-
             // Thiết lập các event handlers
             this._setupEventHandlers();
 
@@ -695,11 +683,6 @@ class MQTTService {
                 return null;
             }
 
-            // Nếu thiết bị không có thông tin MQTT, không tạo kết nối
-            if (!device.mqttUsername || !device.mqttApiKey) {
-                console.warn(`⚠️ Thiết bị ${deviceId} không có thông tin MQTT, không tạo kết nối`);
-                return null;
-            }
 
             console.log(`🔌 Đang tạo kết nối MQTT cho thiết bị ${deviceId} với username ${device.mqttUsername}`);
 
@@ -1021,19 +1004,6 @@ class MQTTService {
                             resolve(false);
                         } else {
                             console.log(`✅ Đã gửi dữ liệu thành công đến ${topic}: ${valueStr}`);
-                            
-                            // Thành công - thử gửi thêm một lần nữa để đảm bảo thiết bị nhận được
-                            // setTimeout(() => {
-                            //     console.log(`📤 Gửi thêm lần nữa để đảm bảo thiết bị nhận được: ${topic} = ${valueStr}`);
-                            //     this.client.publish(topic, valueStr, { qos: 1 }, (retryErr) => {
-                            //         if (retryErr) {
-                            //             console.warn(`⚠️ Lỗi khi gửi lại lần 2:`, retryErr);
-                            //             // Vẫn coi là thành công vì lần đầu đã thành công
-                            // } else {
-                            //             console.log(`✅ Đã gửi lại lần 2 thành công`);
-                            //         }
-                            //     });
-                            // }, 500); // đợi 500ms và gửi lại
                             
                                 resolve(true);
                             }
