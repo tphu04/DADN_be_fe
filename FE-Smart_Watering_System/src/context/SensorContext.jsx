@@ -857,156 +857,194 @@ export const SensorProvider = ({ children }) => {
           const axios = (await import('axios')).default;
           const API_ENDPOINTS = (await import('../services/ApiEndpoints')).default;
           
-          const configResponse = await axios.get(API_ENDPOINTS.DEVICES.GET_CONFIG('current'), {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-            timeout: 5000 // Add timeout to prevent hanging
-          });
-          
-          if (configResponse.data && configResponse.data.success && configResponse.data.config) {
-            console.log('SensorContext: Nhận được cấu hình từ API, nhưng sẽ để Dashboard cập nhật ngưỡng.');
-            // Không ghi đè cấu hình ngưỡng ở đây, để Dashboard đồng bộ các giá trị
-            // Việc cập nhật sẽ được thực hiện thông qua hàm updateThresholdConfig
-          }
-        } catch (configError) {
-          console.error('SensorContext: Lỗi khi tải cấu hình ngưỡng:', configError);
-          
-          // If we can't load config from API, use sensible defaults
-          if (!thresholdConfig || Object.keys(thresholdConfig).length === 0) {
-            console.warn('SensorContext: Setting default threshold config due to API error');
-            const fallbackThresholds = {
-              soilMoisture: { min: 20, max: 80 },  // Agriculture typically needs 20-80% moisture
-              temperature: { min: 18, max: 32 },    // Most plants thrive between 18-32°C
-              airHumidity: { min: 40, max: 80 }     // 40-80% is good for most plants
-            };
-            setThresholdConfig(fallbackThresholds);
-          }
-        }
-        
-        if (result && result.success && result.data && result.data.length > 0) {
-          // Lưu dữ liệu trước đó
-          setPrevData({
-            soilMoisture: sensorData.soilMoisture,
-            temperature: sensorData.temperature,
-            airHumidity: sensorData.airHumidity,
-            pumpWater: {
-              speed: sensorData.pumpWater?.speed || 0
-            },
-            light: {
-              status: sensorData.light?.status || 'Off'
+          // Check if user is approved before attempting to fetch config
+          const userData = JSON.parse(localStorage.getItem('userData'));
+          if (!userData || !userData.isAccepted) {
+            console.log('SensorContext: User not approved yet, skipping config fetch');
+            
+            // If we can't load config from API, use sensible defaults
+            if (!thresholdConfig || Object.keys(thresholdConfig).length === 0) {
+              console.warn('SensorContext: Setting default threshold config due to unapproved user');
+              const fallbackThresholds = {
+                soilMoisture: { min: 20, max: 80 },  // Agriculture typically needs 20-80% moisture
+                temperature: { min: 18, max: 32 },    // Most plants thrive between 18-32°C
+                airHumidity: { min: 40, max: 80 }     // 40-80% is good for most plants
+              };
+              setThresholdConfig(fallbackThresholds);
             }
-          });
+          } else {
+            // Only attempt to load config if user is approved
+            try {
+              const configResponse = await axios.get(API_ENDPOINTS.DEVICES.GET_CONFIG('current'), {
+                headers: {
+                  Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+                timeout: 5000 // Add timeout to prevent hanging
+              });
+              
+              if (configResponse.data && configResponse.data.success && configResponse.data.config) {
+                console.log('SensorContext: Nhận được cấu hình từ API, nhưng sẽ để Dashboard cập nhật ngưỡng.');
+                // Không ghi đè cấu hình ngưỡng ở đây, để Dashboard đồng bộ các giá trị
+                // Việc cập nhật sẽ được thực hiện thông qua hàm updateThresholdConfig
+              }
+            } catch (configError) {
+              console.error('SensorContext: Lỗi khi tải cấu hình ngưỡng:', configError);
+              
+              // If we can't load config from API, use sensible defaults
+              if (!thresholdConfig || Object.keys(thresholdConfig).length === 0) {
+                console.warn('SensorContext: Setting default threshold config due to API error');
+                const fallbackThresholds = {
+                  soilMoisture: { min: 20, max: 80 },  // Agriculture typically needs 20-80% moisture
+                  temperature: { min: 18, max: 32 },    // Most plants thrive between 18-32°C
+                  airHumidity: { min: 40, max: 80 }     // 40-80% is good for most plants
+                };
+                setThresholdConfig(fallbackThresholds);
+              }
+            }
+          }
           
-          // Khởi tạo dữ liệu mới, sử dụng giá trị hiện tại cho các giá trị không được cập nhật
-          let newSensorData = {
-            soilMoisture: sensorData.soilMoisture,
-            temperature: sensorData.temperature,
-            airHumidity: sensorData.airHumidity,
-            pumpWater: {
-              status: sensorData.pumpWater?.status || 'Off',
-              speed: sensorData.pumpWater?.speed || 0
-            },
-            light: {
-              status: sensorData.light?.status || 'Off'
-            },
-            loading: false,
-            error: null
-          };
-          
-          // Flag để theo dõi xem các loại dữ liệu đã được cập nhật chưa
-          let pumpUpdated = false;
-          let temperatureUpdated = false;
-          let humidityUpdated = false;
-          let soilMoistureUpdated = false;
-          let lightUpdated = false;
-          
-          // Dữ liệu từ API đã được lọc cho user hiện tại, vì backend đã check userId
-          for (const sensor of result.data) {
-            // Check if this sensor data is a fallback (not from real API)
-            const isFallback = sensor.isFallback === true;
-            if (isFallback) {
-              console.warn(`SensorContext: Using fallback data for ${sensor.deviceType}`);
+          if (result && result.success && result.data && result.data.length > 0) {
+            // Lưu dữ liệu trước đó
+            setPrevData({
+              soilMoisture: sensorData.soilMoisture,
+              temperature: sensorData.temperature,
+              airHumidity: sensorData.airHumidity,
+              pumpWater: {
+                speed: sensorData.pumpWater?.speed || 0
+              },
+              light: {
+                status: sensorData.light?.status || 'Off'
+              }
+            });
+            
+            // Khởi tạo dữ liệu mới, sử dụng giá trị hiện tại cho các giá trị không được cập nhật
+            let newSensorData = {
+              soilMoisture: sensorData.soilMoisture,
+              temperature: sensorData.temperature,
+              airHumidity: sensorData.airHumidity,
+              pumpWater: {
+                status: sensorData.pumpWater?.status || 'Off',
+                speed: sensorData.pumpWater?.speed || 0
+              },
+              light: {
+                status: sensorData.light?.status || 'Off'
+              },
+              loading: false,
+              error: null
+            };
+            
+            // Flag để theo dõi xem các loại dữ liệu đã được cập nhật chưa
+            let pumpUpdated = false;
+            let temperatureUpdated = false;
+            let humidityUpdated = false;
+            let soilMoistureUpdated = false;
+            let lightUpdated = false;
+            
+            // Dữ liệu từ API đã được lọc cho user hiện tại, vì backend đã check userId
+            for (const sensor of result.data) {
+              // Check if this sensor data is a fallback (not from real API)
+              const isFallback = sensor.isFallback === true;
+              if (isFallback) {
+                console.warn(`SensorContext: Using fallback data for ${sensor.deviceType}`);
+              }
+              
+              if (sensor?.deviceType === 'soil_moisture' && 'soilMoisture' in sensor) {
+                newSensorData.soilMoisture = sensor.soilMoisture;
+                soilMoistureUpdated = true;
+                console.log(`SensorContext: Updated soil moisture from ${isFallback ? 'fallback' : 'API'}: ${sensor.soilMoisture}%`);
+              } else if (sensor?.deviceType === 'temperature_humidity') {
+                if ('temperature' in sensor) {
+                  newSensorData.temperature = sensor.temperature;
+                  temperatureUpdated = true;
+                  console.log(`SensorContext: Updated temperature from ${isFallback ? 'fallback' : 'API'}: ${sensor.temperature}°C`);
+                }
+                if ('airHumidity' in sensor) {
+                  newSensorData.airHumidity = sensor.airHumidity;
+                  humidityUpdated = true;
+                  console.log(`SensorContext: Updated air humidity from ${isFallback ? 'fallback' : 'API'}: ${sensor.airHumidity}%`);
+                }
+              } else if (sensor?.deviceType === 'pump_water') {
+                pumpUpdated = true;
+                // Get the pump speed value - handle both pumpSpeed (from API) and speed (from context) field names
+                const pumpSpeed = sensor.pumpSpeed !== undefined ? sensor.pumpSpeed : 
+                                (sensor.speed !== undefined ? sensor.speed : 0);
+                
+                // Always derive status from speed
+                const pumpStatus = pumpSpeed > 0 ? 'On' : 'Off';
+                
+                // Set values with status derived from speed
+                newSensorData.pumpWater = {
+                  status: pumpStatus,
+                  speed: pumpSpeed
+                };
+                
+                console.log(`SensorContext: Updated pump data from ${isFallback ? 'fallback' : 'API'}: ${pumpStatus} (${pumpSpeed}%)`);
+              } else if (sensor?.deviceType === 'light') {
+                newSensorData.light = {
+                  status: sensor.status || 'Off'
+                };
+                lightUpdated = true;
+                console.log(`SensorContext: Updated light status from ${isFallback ? 'fallback' : 'API'}: ${sensor.status}`);
+              }
             }
             
-            if (sensor?.deviceType === 'soil_moisture' && 'soilMoisture' in sensor) {
-              newSensorData.soilMoisture = sensor.soilMoisture;
-              soilMoistureUpdated = true;
-              console.log(`SensorContext: Updated soil moisture from ${isFallback ? 'fallback' : 'API'}: ${sensor.soilMoisture}%`);
-            } else if (sensor?.deviceType === 'temperature_humidity') {
-              if ('temperature' in sensor) {
-                newSensorData.temperature = sensor.temperature;
-                temperatureUpdated = true;
-                console.log(`SensorContext: Updated temperature from ${isFallback ? 'fallback' : 'API'}: ${sensor.temperature}°C`);
-              }
-              if ('airHumidity' in sensor) {
-                newSensorData.airHumidity = sensor.airHumidity;
-                humidityUpdated = true;
-                console.log(`SensorContext: Updated air humidity from ${isFallback ? 'fallback' : 'API'}: ${sensor.airHumidity}%`);
-              }
-            } else if (sensor?.deviceType === 'pump_water') {
-              pumpUpdated = true;
-              // Get the pump speed value - handle both pumpSpeed (from API) and speed (from context) field names
-              const pumpSpeed = sensor.pumpSpeed !== undefined ? sensor.pumpSpeed : 
-                              (sensor.speed !== undefined ? sensor.speed : 0);
-              
-              // Always derive status from speed
-              const pumpStatus = pumpSpeed > 0 ? 'On' : 'Off';
-              
-              // Set values with status derived from speed
-              newSensorData.pumpWater = {
-                status: pumpStatus,
-                speed: pumpSpeed
-              };
-              
-              console.log(`SensorContext: Updated pump data from ${isFallback ? 'fallback' : 'API'}: ${pumpStatus} (${pumpSpeed}%)`);
-            } else if (sensor?.deviceType === 'light') {
-              newSensorData.light = {
-                status: sensor.status || 'Off'
-              };
-              lightUpdated = true;
-              console.log(`SensorContext: Updated light status from ${isFallback ? 'fallback' : 'API'}: ${sensor.status}`);
+            // Log what data was updated vs. not updated
+            if (!soilMoistureUpdated) console.warn('SensorContext: No soil moisture data updated from API');
+            if (!temperatureUpdated) console.warn('SensorContext: No temperature data updated from API');
+            if (!humidityUpdated) console.warn('SensorContext: No humidity data updated from API');
+            if (!pumpUpdated) console.warn('SensorContext: No pump data updated from API, keeping existing values:', newSensorData.pumpWater);
+            if (!lightUpdated) console.warn('SensorContext: No light status updated from API');
+            
+            // Check if any data was updated at all
+            const anyUpdated = soilMoistureUpdated || temperatureUpdated || humidityUpdated || pumpUpdated || lightUpdated;
+            if (!anyUpdated) {
+              console.warn('SensorContext: No data was updated from API call');
             }
+            
+            // Cập nhật state
+            setSensorData(newSensorData);
+            
+            // Kiểm tra ngưỡng với dữ liệu mới
+            if (checkThresholds) {
+              setTimeout(() => {
+                checkThresholds(newSensorData);
+              }, 100);
+            }
+            
+            // Ensure data is saved to localStorage immediately
+            saveToLocalStorage(SENSOR_DATA_KEY, {
+              soilMoisture: newSensorData.soilMoisture,
+              temperature: newSensorData.temperature,
+              airHumidity: newSensorData.airHumidity,
+              pumpWater: newSensorData.pumpWater,
+              light: newSensorData.light
+            });
+            
+            return newSensorData;
+          } else {
+            console.log('SensorContext: No sensor data or data format issue from API, keeping existing data');
+            
+            // Mark loading as complete, but keep existing data
+            setSensorData(prev => ({ ...prev, loading: false }));
+            
+            // Still check thresholds with existing data
+            if (checkThresholds) {
+              setTimeout(() => {
+                checkThresholds(sensorData);
+              }, 100);
+            }
+            
+            return sensorData;
           }
+        } catch (error) {
+          console.error('SensorContext: Error fetching sensor data from API:', error);
           
-          // Log what data was updated vs. not updated
-          if (!soilMoistureUpdated) console.warn('SensorContext: No soil moisture data updated from API');
-          if (!temperatureUpdated) console.warn('SensorContext: No temperature data updated from API');
-          if (!humidityUpdated) console.warn('SensorContext: No humidity data updated from API');
-          if (!pumpUpdated) console.warn('SensorContext: No pump data updated from API, keeping existing values:', newSensorData.pumpWater);
-          if (!lightUpdated) console.warn('SensorContext: No light status updated from API');
-          
-          // Check if any data was updated at all
-          const anyUpdated = soilMoistureUpdated || temperatureUpdated || humidityUpdated || pumpUpdated || lightUpdated;
-          if (!anyUpdated) {
-            console.warn('SensorContext: No data was updated from API call');
-          }
-          
-          // Cập nhật state
-          setSensorData(newSensorData);
-          
-          // Kiểm tra ngưỡng với dữ liệu mới
-          if (checkThresholds) {
-            setTimeout(() => {
-              checkThresholds(newSensorData);
-            }, 100);
-          }
-          
-          // Ensure data is saved to localStorage immediately
-          saveToLocalStorage(SENSOR_DATA_KEY, {
-            soilMoisture: newSensorData.soilMoisture,
-            temperature: newSensorData.temperature,
-            airHumidity: newSensorData.airHumidity,
-            pumpWater: newSensorData.pumpWater,
-            light: newSensorData.light
-          });
-          
-          return newSensorData;
-        } else {
-          console.log('SensorContext: No sensor data or data format issue from API, keeping existing data');
-          
-          // Mark loading as complete, but keep existing data
-          setSensorData(prev => ({ ...prev, loading: false }));
+          // Set error state but keep existing sensor data
+          setSensorData(prev => ({ 
+            ...prev, 
+            loading: false,
+            error: error.message || 'Failed to fetch sensor data'
+          }));
           
           // Still check thresholds with existing data
           if (checkThresholds) {

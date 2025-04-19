@@ -139,8 +139,6 @@ const logIn = async (req, res) => {
             isAdmin: user.isAdmin || false,
             userType: user.isAdmin ? 'admin' : 'user',
             isAccepted: user.isAccepted || false,
-            mqttUsername: user.mqttUsername,
-            mqttApiKey: user.mqttApiKey
         };
 
         res.status(200).json({

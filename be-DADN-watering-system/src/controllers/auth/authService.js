@@ -55,8 +55,6 @@ async function findByUsername(username) {
                 const userData = await prisma.$queryRaw`SELECT isAccepted, mqttUsername, mqttApiKey FROM User WHERE id = ${user.id}`;
                 if (userData && userData.length > 0) {
                     user.isAccepted = userData[0].isAccepted || false;
-                    user.mqttUsername = userData[0].mqttUsername;
-                    user.mqttApiKey = userData[0].mqttApiKey;
                 }
             }
         }

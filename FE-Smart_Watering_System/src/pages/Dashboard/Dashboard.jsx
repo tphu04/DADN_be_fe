@@ -178,74 +178,56 @@ const Dashboard = () => {
     // Lấy cấu hình ngưỡng
     const fetchThresholds = async () => {
       try {
-        console.log('Dashboard: Fetching threshold configs');
-        // Lấy cấu hình mới nhất từ API
+        // Check if user is approved before attempting to fetch thresholds
+        const currentUserData = JSON.parse(localStorage.getItem('userData'));
+        if (!currentUserData || !currentUserData.isAccepted) {
+          console.log('Dashboard: User not approved yet, skipping threshold config fetch');
+          return;
+        }
+
         const response = await axios.get(API_ENDPOINTS.DEVICES.GET_CONFIG('current'), {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
         });
+        
+        console.log('Dashboard: Threshold config API response:', response.data);
+        
+        if (response.data && response.data.success) {
+          // Kiểm tra cấu trúc dữ liệu để xử lý phù hợp
+          if (response.data.config) {
+            const configData = response.data.config;
+            
+            // Cập nhật state thresholds
+            const newThresholds = {
+              SOIL_MOISTURE: {
+                min: configData.soilMoisture?.min || 0,
+                max: configData.soilMoisture?.max || 100
+              },
+              TEMPERATURE: {
+                min: configData.temperature?.min || 0,
+                max: configData.temperature?.max || 50
+              },
+              AIR_HUMIDITY: {
+                min: configData.airHumidity?.min || 0,
+                max: configData.airHumidity?.max || 100
+              },
+              PUMP_SPEED: {
+                min: 0,
+                max: 100
+              }
+            };
 
-        console.log('Dashboard: Threshold config response:', response.data);
-        console.log('Dashboard: Cấu trúc phản hồi API:', {
-          success: response.data.success,
-          has_config: !!response.data.config,
-          has_data: !!response.data.data,
-          config_structure: response.data.config ? Object.keys(response.data.config) : 'không có config'
-        });
-
-        if (response.data && response.data.success && response.data.config) {
-          const configData = response.data.config;
-
-          // Cập nhật state với dữ liệu từ API
-          setThresholds({
-            SOIL_MOISTURE: {
-              min: configData.soilMoisture?.min || 0,
-              max: configData.soilMoisture?.max || 100
-            },
-            TEMPERATURE: {
-              min: configData.temperature?.min || 0,
-              max: configData.temperature?.max || 50
-            },
-            AIR_HUMIDITY: {
-              min: configData.airHumidity?.min || 0,
-              max: configData.airHumidity?.max || 100
-            },
-            PUMP_SPEED: {
-              min: 0,
-              max: 100
+            // Cập nhật cấu hình ngưỡng trong SensorContext
+            if (updateThresholdConfig) {
+              updateThresholdConfig(newThresholds);
+              console.log('Dashboard: Đã cập nhật cấu hình ngưỡng cho SensorContext');
             }
-          });
 
-          // Cập nhật cấu hình ngưỡng cho SensorContext
-          const newThresholds = {
-            SOIL_MOISTURE: {
-              min: configData.soilMoisture?.min || 0,
-              max: configData.soilMoisture?.max || 100
-            },
-            TEMPERATURE: {
-              min: configData.temperature?.min || 0,
-              max: configData.temperature?.max || 50
-            },
-            AIR_HUMIDITY: {
-              min: configData.airHumidity?.min || 0,
-              max: configData.airHumidity?.max || 100
-            },
-            PUMP_SPEED: {
-              min: 0,
-              max: 100
-            }
-          };
-
-          // Cập nhật cấu hình ngưỡng trong SensorContext
-          if (updateThresholdConfig) {
-            updateThresholdConfig(newThresholds);
-            console.log('Dashboard: Đã cập nhật cấu hình ngưỡng cho SensorContext');
+            console.log('Dashboard: Updated thresholds from API:', thresholds);
+          } else {
+            console.warn('Dashboard: Invalid config data format, using defaults');
           }
-
-          console.log('Dashboard: Updated thresholds from API:', thresholds);
-        } else {
-          console.warn('Dashboard: Invalid config data format, using defaults');
         }
       } catch (error) {
         console.error('Dashboard: Error fetching threshold configs:', error);
@@ -290,6 +272,13 @@ const Dashboard = () => {
       const refreshThresholds = async () => {
         console.log('Dashboard: Refreshing threshold configs');
         try {
+          // Check if user is approved before attempting to fetch thresholds
+          const currentUserData = JSON.parse(localStorage.getItem('userData'));
+          if (!currentUserData || !currentUserData.isAccepted) {
+            console.log('Dashboard: User not approved yet, skipping threshold config refresh');
+            return;
+          }
+
           const response = await axios.get(API_ENDPOINTS.DEVICES.GET_CONFIG('current'), {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("token")}`,

@@ -48,6 +48,14 @@ const ConfigDevice = () => {
       try {
         setFetchingConfig(true);
         
+        // Skip API call if user is not approved
+        if (!hasPermission) {
+          console.log('ConfigDevice: User not approved, skipping config fetch');
+          setConfigs(defaultConfig);
+          setFetchingConfig(false);
+          return;
+        }
+        
         // Try to get the device-specific configuration if we have a deviceId
         const deviceId = localStorage.getItem("selectedDeviceId") || 'current';
         
@@ -217,6 +225,15 @@ const ConfigDevice = () => {
   const handleRefreshConfig = async () => {
     try {
       setFetchingConfig(true);
+      
+      // Skip API call if user is not approved
+      if (!hasPermission) {
+        console.log('ConfigDevice: User not approved, skipping config refresh');
+        toast.info("Account is pending approval. Using default configuration.");
+        setFetchingConfig(false);
+        return;
+      }
+      
       toast.info("Đang tải lại cấu hình mới nhất...");
       
       // Try to get the device-specific configuration if we have a deviceId
