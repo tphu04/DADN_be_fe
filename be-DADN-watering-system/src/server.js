@@ -15,8 +15,8 @@ const app = express();
 
 // ✅ Danh sách origin được phép (bao gồm cả FE local và FE Vercel)
 const allowedOrigins = [
-    // 'https://smart-watering-system.vercel.app',
-    'http://localhost:5173' 
+    'https://smart-watering-system.vercel.app',
+    // 'http://localhost:5173' 
 ];
 
 // ✅ Cấu hình CORS động theo origin
