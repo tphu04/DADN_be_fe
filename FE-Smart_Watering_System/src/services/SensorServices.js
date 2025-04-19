@@ -63,6 +63,18 @@ class SensorServices {
         console.error('SensorService: Error accessing localStorage:', localStorageError);
       }
       
+      // Check for previously encountered 404 devices to avoid repeatedly hitting them
+      let knownDeletedDevices = [];
+      try {
+        const deletedDevicesString = localStorage.getItem('unavailable_devices');
+        if (deletedDevicesString) {
+          knownDeletedDevices = JSON.parse(deletedDevicesString);
+          console.log('SensorService: Found previously unavailable devices:', knownDeletedDevices);
+        }
+      } catch (error) {
+        console.error('SensorService: Error loading unavailable devices list:', error);
+      }
+      
       // Chuẩn bị mảng kết quả
       const result = {
         success: true,
@@ -80,8 +92,57 @@ class SensorServices {
         const devices = devicesResponse.data.data;
         console.log(`SensorService: Found ${devices.length} devices`);
         
+        // Track new unavailable devices in this request
+        const newlyUnavailableDevices = [];
+        
         // Lấy dữ liệu từng loại thiết bị
         for (const device of devices) {
+          // Skip device if we know it's unavailable
+          if (knownDeletedDevices.includes(device.id.toString())) {
+            console.log(`SensorService: Skipping known unavailable device ${device.id}`);
+            
+            // Add fallback data for known unavailable device
+            if (savedData) {
+              // Use the same logic as below to add fallback data
+              if (device.deviceType === 'soil_moisture' && savedData.soilMoisture !== undefined) {
+                result.data.push({
+                  deviceType: 'soil_moisture',
+                  deviceId: device.id,
+                  soilMoisture: savedData.soilMoisture,
+                  isFallback: true
+                });
+              } else if (device.deviceType === 'temperature_humidity' && 
+                        savedData.temperature !== undefined && savedData.airHumidity !== undefined) {
+                result.data.push({
+                  deviceType: 'temperature_humidity',
+                  deviceId: device.id,
+                  temperature: savedData.temperature,
+                  airHumidity: savedData.airHumidity,
+                  isFallback: true
+                });
+              } else if (device.deviceType === 'pump_water' && savedData.pumpWater) {
+                const pumpSpeed = savedData.pumpWater.speed || 0;
+                result.data.push({
+                  deviceType: 'pump_water',
+                  deviceId: device.id,
+                  status: savedData.pumpWater.status || 'Off',
+                  pumpSpeed: pumpSpeed,
+                  speed: pumpSpeed,
+                  isFallback: true
+                });
+              } else if (device.deviceType === 'light' && savedData.light) {
+                result.data.push({
+                  deviceType: 'light',
+                  deviceId: device.id,
+                  status: savedData.light.status || 'Off',
+                  isFallback: true
+                });
+              }
+            }
+            
+            continue;
+          }
+          
           try {
             let endpoint;
             let dataProcessor;
@@ -94,14 +155,16 @@ class SensorServices {
                 fallbackData = {
                   deviceType: 'soil_moisture',
                   deviceId: device.id,
-                  soilMoisture: savedData?.soilMoisture 
+                  soilMoisture: savedData?.soilMoisture,
+                  isFallback: true  // Add flag to indicate this is fallback data
                 };
                 dataProcessor = (responseData) => {
                   if (responseData && responseData.data && responseData.data.length > 0) {
                     return {
                       deviceType: 'soil_moisture',
                       deviceId: device.id,
-                      soilMoisture: responseData.data[0].moistureValue 
+                      soilMoisture: responseData.data[0].moistureValue,
+                      isFallback: false  // Real data from API
                     };
                   }
                   return fallbackData;
@@ -113,16 +176,18 @@ class SensorServices {
                 fallbackData = {
                   deviceType: 'temperature_humidity',
                   deviceId: device.id,
-                  temperature: savedData?.temperature ,
-                  airHumidity: savedData?.airHumidity 
+                  temperature: savedData?.temperature,
+                  airHumidity: savedData?.airHumidity,
+                  isFallback: true  // Add flag to indicate this is fallback data
                 };
                 dataProcessor = (responseData) => {
                   if (responseData && responseData.data && responseData.data.length > 0) {
                     return {
                       deviceType: 'temperature_humidity',
                       deviceId: device.id,
-                      temperature: responseData.data[0].temperature ,
-                      airHumidity: responseData.data[0].humidity 
+                      temperature: responseData.data[0].temperature,
+                      airHumidity: responseData.data[0].humidity,
+                      isFallback: false  // Real data from API
                     };
                   }
                   return fallbackData;
@@ -131,13 +196,14 @@ class SensorServices {
                 
               case 'pump_water':
                 endpoint = API_ENDPOINTS.DEVICES.GET_PUMP_WATER(device.id);
-                const pumpSpeed = savedData && savedData.pumpWater ? savedData.pumpWater.speed  : 0;
+                const pumpSpeed = savedData && savedData.pumpWater ? savedData.pumpWater.speed : 0;
                 fallbackData = {
                   deviceType: 'pump_water',
                   deviceId: device.id,
                   status: pumpSpeed > 0 ? 'On' : 'Off',
                   pumpSpeed: pumpSpeed,
-                  speed: pumpSpeed
+                  speed: pumpSpeed,
+                  isFallback: true  // Add flag to indicate this is fallback data
                 };
                 dataProcessor = (responseData) => {
                   if (responseData && responseData.data && responseData.data.length > 0) {
@@ -145,8 +211,9 @@ class SensorServices {
                       deviceType: 'pump_water',
                       deviceId: device.id,
                       status: responseData.data[0].status || 'Off',
-                      pumpSpeed: responseData.data[0].pumpSpeed ,
-                      speed: responseData.data[0].pumpSpeed 
+                      pumpSpeed: responseData.data[0].pumpSpeed,
+                      speed: responseData.data[0].pumpSpeed,
+                      isFallback: false  // Real data from API
                     };
                     // Return normalized data
                     return SensorServices.normalizeDeviceData(processedData);
@@ -160,14 +227,16 @@ class SensorServices {
                 fallbackData = {
                   deviceType: 'light',
                   deviceId: device.id,
-                  status: savedData && savedData.light ? savedData.light.status || 'Off' : 'Off'
+                  status: savedData && savedData.light ? savedData.light.status || 'Off' : 'Off',
+                  isFallback: true  // Add flag to indicate this is fallback data
                 };
                 dataProcessor = (responseData) => {
                   if (responseData && responseData.data && responseData.data.length > 0) {
                     return {
                       deviceType: 'light',
                       deviceId: device.id,
-                      status: responseData.data[0].status || 'Off'
+                      status: responseData.data[0].status || 'Off',
+                      isFallback: false  // Real data from API
                     };
                   }
                   return fallbackData;
@@ -197,14 +266,25 @@ class SensorServices {
                   console.log(`SensorService: Using fallback data for ${device.deviceType} device (ID: ${device.id})`);
                 }
               } catch (deviceRequestError) {
-                console.error(`SensorService: Error fetching data for device ${device.id}:`, deviceRequestError);
+                // Track and store 404 errors to avoid repeat requests
+                if (deviceRequestError.response && deviceRequestError.response.status === 404) {
+                  console.warn(`SensorService: Device data not found for ${device.deviceType} (ID: ${device.id}), using fallback data`);
+                  
+                  // Add to the list of unavailable devices
+                  if (!knownDeletedDevices.includes(device.id.toString())) {
+                    newlyUnavailableDevices.push(device.id.toString());
+                  }
+                } else {
+                  console.error(`SensorService: Error fetching data for device ${device.id}:`, deviceRequestError);
+                }
                 
                 // Try to use localStorage data first before sample data
                 if (savedData && device.deviceType === 'soil_moisture' && savedData.soilMoisture !== undefined) {
                   result.data.push({
                     deviceType: 'soil_moisture',
                     deviceId: device.id,
-                    soilMoisture: savedData.soilMoisture
+                    soilMoisture: savedData.soilMoisture,
+                    isFallback: true  // Add flag to indicate this is fallback data
                   });
                   console.log(`SensorService: Using localStorage data for soil_moisture: ${savedData.soilMoisture}`);
                 } else if (savedData && device.deviceType === 'temperature_humidity' && 
@@ -213,40 +293,66 @@ class SensorServices {
                     deviceType: 'temperature_humidity',
                     deviceId: device.id,
                     temperature: savedData.temperature,
-                    airHumidity: savedData.airHumidity
+                    airHumidity: savedData.airHumidity,
+                    isFallback: true  // Add flag to indicate this is fallback data
                   });
                   console.log(`SensorService: Using localStorage data for temperature_humidity: ${savedData.temperature}°C, ${savedData.airHumidity}%`);
                 } else if (savedData && device.deviceType === 'pump_water' && savedData.pumpWater) {
-                  const pumpSpeed = savedData.pumpWater.speed ;
+                  const pumpSpeed = savedData.pumpWater.speed || 0;
                   result.data.push({
                     deviceType: 'pump_water',
                     deviceId: device.id,
                     status: savedData.pumpWater.status || 'Off',
                     pumpSpeed: pumpSpeed,  // Use pumpSpeed for API compatibility
-                    speed: pumpSpeed       // Use speed for frontend compatibility
+                    speed: pumpSpeed,       // Use speed for frontend compatibility
+                    isFallback: true  // Add flag to indicate this is fallback data
                   });
                   console.log(`SensorService: Using localStorage data for pump_water: ${savedData.pumpWater.status}, ${pumpSpeed}%`);
                 } else if (savedData && device.deviceType === 'light' && savedData.light) {
                   result.data.push({
                     deviceType: 'light',
                     deviceId: device.id,
-                    status: savedData.light.status || 'Off'
+                    status: savedData.light.status || 'Off',
+                    isFallback: true  // Add flag to indicate this is fallback data
                   });
                   console.log(`SensorService: Using localStorage data for light: ${savedData.light.status}`);
                 } else {
                   // Fallback to sample data only if localStorage data isn't available
                   result.data.push(fallbackData);
-                  console.log(`SensorService: Using sample fallback data for ${device.deviceType} device (ID: ${device.id}) due to request error`);
+                  console.log(`SensorService: Using fallback data for ${device.deviceType} device (ID: ${device.id})`);
                 }
               }
             }
           } catch (deviceError) {
             console.error(`SensorService: Error processing device ${device.id}:`, deviceError);
-            // Tiếp tục với thiết bị tiếp theo
+            // Continue with next device but mark as fallback data
+            if (fallbackData) {
+              result.data.push({...fallbackData, isFallback: true});
+            }
+          }
+        }
+        
+        // Update the unavailable devices list
+        if (newlyUnavailableDevices.length > 0) {
+          const combinedUnavailableDevices = [...new Set([...knownDeletedDevices, ...newlyUnavailableDevices])];
+          try {
+            localStorage.setItem('unavailable_devices', JSON.stringify(combinedUnavailableDevices));
+            console.log('SensorService: Updated unavailable devices list:', combinedUnavailableDevices);
+          } catch (error) {
+            console.error('SensorService: Error saving unavailable devices list:', error);
           }
         }
         
         console.log(`SensorService: Returned data for ${result.data.length} devices`);
+        
+        // Check if we're using fallback data for any device
+        const usingFallback = result.data.some(device => device.isFallback);
+        if (usingFallback) {
+          console.warn('SensorService: Using fallback data for some or all devices');
+          result.hasFallbackData = true;
+          result.message = 'Một số dữ liệu hiển thị có thể không phải dữ liệu thực tế do lỗi kết nối API';
+        }
+        
         return result;
         
       } catch (devicesError) {
@@ -271,7 +377,8 @@ class SensorServices {
           return {
             success: false,
             message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
-            data: []
+            data: [],
+            hasFallbackData: true
           };
         }
         
@@ -284,7 +391,8 @@ class SensorServices {
             const fallbackResult = {
               success: true,
               message: 'Đang hiển thị dữ liệu lưu trữ cục bộ do không thể kết nối với máy chủ',
-              data: []
+              data: [],
+              hasFallbackData: true
             };
             
             // Add soil_moisture device if we have data
@@ -292,7 +400,8 @@ class SensorServices {
               fallbackResult.data.push({
                 deviceType: 'soil_moisture',
                 deviceId: 'local-1',
-                soilMoisture: savedData.soilMoisture
+                soilMoisture: savedData.soilMoisture,
+                isFallback: true
               });
             }
             
@@ -302,19 +411,21 @@ class SensorServices {
                 deviceType: 'temperature_humidity',
                 deviceId: 'local-2',
                 temperature: savedData.temperature,
-                airHumidity: savedData.airHumidity
+                airHumidity: savedData.airHumidity,
+                isFallback: true
               });
             }
             
             // Add pump_water device if we have data
             if (savedData.pumpWater) {
-              const pumpSpeed = savedData.pumpWater.speed ;
+              const pumpSpeed = savedData.pumpWater.speed;
               fallbackResult.data.push({
                 deviceType: 'pump_water',
                 deviceId: 'local-3',
                 status: savedData.pumpWater.status || 'Off',
                 pumpSpeed: pumpSpeed,  // Use pumpSpeed for API compatibility
-                speed: pumpSpeed       // Use speed for frontend compatibility
+                speed: pumpSpeed,      // Use speed for frontend compatibility
+                isFallback: true
               });
             }
             
@@ -323,7 +434,8 @@ class SensorServices {
               fallbackResult.data.push({
                 deviceType: 'light',
                 deviceId: 'local-4',
-                status: savedData.light.status || 'Off'
+                status: savedData.light.status || 'Off',
+                isFallback: true
               });
             }
             
@@ -333,35 +445,41 @@ class SensorServices {
             // If no localStorage data, fall back to sample data
             console.warn('SensorService: No localStorage data available, using default values');
             
-            // Create fallback data with default values
+            // Create fallback data with default values - use local-* IDs instead of numeric IDs
+            // to avoid conflicts with actual device IDs on the server
             const fallbackResult = {
               success: true,
               message: 'Đang hiển thị dữ liệu mặc định do không thể kết nối với máy chủ và không có dữ liệu lưu trữ',
               data: [
                 {
                   deviceType: 'temperature_humidity',
-                  deviceId: 1,
+                  deviceId: 'local-temp-1',
                   temperature: 0,
-                  airHumidity: 0
+                  airHumidity: 0,
+                  isFallback: true
                 },
                 {
                   deviceType: 'soil_moisture',
-                  deviceId: 2,
-                  soilMoisture: 0
+                  deviceId: 'local-soil-1',
+                  soilMoisture: 0,
+                  isFallback: true
                 },
                 {
                   deviceType: 'pump_water',
-                  deviceId: 3,
+                  deviceId: 'local-pump-1',
                   status: 'Off',
                   pumpSpeed: 0,
-                  speed: 0
+                  speed: 0,
+                  isFallback: true
                 },
                 {
                   deviceType: 'light',
-                  deviceId: 4,
-                  status: 'Off'
+                  deviceId: 'local-light-1',
+                  status: 'Off',
+                  isFallback: true
                 }
-              ]
+              ],
+              hasFallbackData: true
             };
             
             return fallbackResult;
@@ -372,7 +490,8 @@ class SensorServices {
         return {
           success: false,
           message: devicesError.message || 'Lỗi khi lấy danh sách thiết bị',
-          data: []
+          data: [],
+          hasFallbackData: true
         };
       }
       
@@ -386,7 +505,8 @@ class SensorServices {
       return {
         success: false,
         message: error.message || 'Lỗi khi lấy dữ liệu cảm biến',
-        data: []
+        data: [],
+        hasFallbackData: true
       };
     }
   }

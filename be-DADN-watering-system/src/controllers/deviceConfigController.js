@@ -214,24 +214,48 @@ exports.saveConfiguration = async (req, res) => {
   try {
     console.log(`Đang lưu cấu hình mới:`, JSON.stringify(config));
 
-    // Chuẩn bị dữ liệu cấu hình
-    const soilMoistureMin = parseFloat(config.soilMoisture?.min) ;
-    const soilMoistureMax = parseFloat(config.soilMoisture?.max) ;
-    const temperatureMin = parseFloat(config.temperature?.min) ;
-    const temperatureMax = parseFloat(config.temperature?.max) || 50;
-    const humidityMin = parseFloat(config.airHumidity?.min) ;
-    const humidityMax = parseFloat(config.airHumidity?.max) ;
-
-    // Kiểm tra xem đã có cấu hình giống hệt chưa - sử dụng transaction để đảm bảo tính nhất quán
-    console.log('Kiểm tra cấu hình trước khi tạo mới');
+    // Kiểm tra dữ liệu đầu vào và đảm bảo các giá trị là số hợp lệ
+    // Nếu dữ liệu đầu vào có cấu trúc cũ (soilMoisture, temperature, airHumidity)
+    let soilMoistureMin, soilMoistureMax, temperatureMin, temperatureMax, humidityMin, humidityMax;
     
-    // Luôn tạo một hàng mới thay vì kiểm tra và trả về cấu hình đã tồn tại
-    console.log('Tạo bản ghi cấu hình mới');
-    
-    // Lấy thông tin thiết bị nếu có deviceId (chỉ để log, không lưu vào cấu hình)
-    if (config.deviceId) {
-      console.log(`Cấu hình cho thiết bị có ID: ${config.deviceId}`);
+    if (config.soilMoisture) {
+      soilMoistureMin = parseFloat(config.soilMoisture.min);
+      soilMoistureMax = parseFloat(config.soilMoisture.max);
+    } else if (config.soilMoistureMin !== undefined) {
+      // Nếu dữ liệu đầu vào có cấu trúc mới (soilMoistureMin, soilMoistureMax, etc.)
+      soilMoistureMin = parseFloat(config.soilMoistureMin);
+      soilMoistureMax = parseFloat(config.soilMoistureMax);
     }
+
+    if (config.temperature) {
+      temperatureMin = parseFloat(config.temperature.min);
+      temperatureMax = parseFloat(config.temperature.max);
+    } else if (config.temperatureMin !== undefined) {
+      temperatureMin = parseFloat(config.temperatureMin);
+      temperatureMax = parseFloat(config.temperatureMax);
+    }
+
+    if (config.airHumidity) {
+      humidityMin = parseFloat(config.airHumidity.min);
+      humidityMax = parseFloat(config.airHumidity.max);
+    } else if (config.humidityMin !== undefined) {
+      humidityMin = parseFloat(config.humidityMin);
+      humidityMax = parseFloat(config.humidityMax);
+    }
+
+    // Kiểm tra và đặt giá trị mặc định nếu có giá trị NaN
+    if (isNaN(soilMoistureMin)) soilMoistureMin = 20;
+    if (isNaN(soilMoistureMax)) soilMoistureMax = 80;
+    if (isNaN(temperatureMin)) temperatureMin = 20;
+    if (isNaN(temperatureMax)) temperatureMax = 35;
+    if (isNaN(humidityMin)) humidityMin = 40;
+    if (isNaN(humidityMax)) humidityMax = 80;
+    
+    console.log('Cấu hình được xử lý:', {
+      soilMoistureMin, soilMoistureMax, 
+      temperatureMin, temperatureMax, 
+      humidityMin, humidityMax
+    });
     
     // Sử dụng transaction để đảm bảo tính nhất quán
     const newConfig = await prisma.$transaction(async (tx) => {

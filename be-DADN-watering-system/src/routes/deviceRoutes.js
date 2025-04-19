@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const deviceController = require('../controllers/deviceController');
-const { verifyToken } = require('../middleware/authMiddleware');
+const { verifyToken, authenticate } = require('../middleware/authMiddleware');
 
 // Áp dụng middleware verifyToken cho tất cả các routes
 router.use(verifyToken);
@@ -38,5 +38,11 @@ router.get('/:id/pump-water', deviceController.getPumpWaterData);
 
 // Lấy dữ liệu đèn
 router.get('/:id/light', deviceController.getLightData);
+
+// Add activation endpoint
+router.post('/:id/activate', deviceController.activateDevice);
+
+// Lấy cấu hình thiết bị
+router.get('/:id/configuration', deviceController.getDeviceConfiguration);
 
 module.exports = router; 

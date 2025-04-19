@@ -9,6 +9,8 @@ import { toast } from "react-toastify";
  */
 export async function login(username, password) {
   try {
+    console.log('Attempting login for user:', username);
+    
     const res = await axios.post("/auth/login", {
       username,
       password,
@@ -19,11 +21,27 @@ export async function login(username, password) {
       localStorage.setItem("token", res.data.data.token);
       // Lưu thông tin người dùng
       localStorage.setItem("user", JSON.stringify(res.data.data.user));
+      console.log('Login successful');
     }
 
     return res.data;
   } catch (error) {
-    toast.error(error?.response?.data?.message || "Đăng nhập không thành công");
+    console.error('Login error details:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+      code: error.code
+    });
+    
+    let errorMessage = "Đăng nhập không thành công";
+    
+    if (error.code === 'ERR_NETWORK') {
+      errorMessage = "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối internet của bạn hoặc thử lại sau.";
+    } else if (error?.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    }
+    
+    toast.error(errorMessage);
     throw error;
   }
 }
@@ -120,6 +138,15 @@ export function getUser() {
       user.role = 'ADMIN';
       user.userType = 'admin';
     }
+    
+    // Ensure isAccepted is properly typed as boolean
+    if (user.isAccepted === 1 || user.isAccepted === "1" || user.isAccepted === true) {
+      user.isAccepted = true;
+    } else if (user.isAccepted === 0 || user.isAccepted === "0" || user.isAccepted === false) {
+      user.isAccepted = false;
+    }
+    
+    console.log('User data from localStorage:', user);
     return user;
   } catch (error) {
     console.error('Error parsing user data:', error);

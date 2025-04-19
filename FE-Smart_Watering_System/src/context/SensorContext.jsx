@@ -185,9 +185,24 @@ export const SensorProvider = ({ children }) => {
   
   // Thêm state theo dõi trạng thái ngưỡng của các cảm biến
   const [thresholdAlerts, setThresholdAlerts] = useState({
-    soilMoisture: false,
-    temperature: false,
-    airHumidity: false
+    soilMoisture: { high: false, low: false, timestamp: null },
+    temperature: { high: false, low: false, timestamp: null },
+    airHumidity: { high: false, low: false, timestamp: null }
+  });
+  
+  // Thêm state để theo dõi lý do thiết bị được bật
+  const [deviceTriggers, setDeviceTriggers] = useState({
+    pump: {
+      soilMoistureLow: false,
+      temperatureHigh: false,
+      airHumidityLow: false
+    },
+    light: {
+      soilMoistureHigh: false,
+      temperatureHigh: false,
+      temperatureLow: false,
+      airHumidityHigh: false
+    }
   });
   
   // Thêm state để lưu trữ cấu hình ngưỡng
@@ -228,105 +243,267 @@ export const SensorProvider = ({ children }) => {
     return Math.round(((current - previous) / previous) * 100);
   };
   
-  // Hàm kiểm tra và cập nhật trạng thái ngưỡng
-  const checkThresholds = (newData) => {
-    console.log('SensorContext: Kiểm tra ngưỡng cho dữ liệu mới:', newData);
-    
-    const newAlerts = { ...thresholdAlerts };
-    let hasChanges = false;
-    
-    // Kiểm tra độ ẩm đất
-    if (newData.soilMoisture !== undefined) {
-      const soilMoistureExceedsThreshold = 
-        newData.soilMoisture < thresholdConfig.soilMoisture.min || 
-        newData.soilMoisture > thresholdConfig.soilMoisture.max;
-      
-      if (newAlerts.soilMoisture !== soilMoistureExceedsThreshold) {
-        newAlerts.soilMoisture = soilMoistureExceedsThreshold;
-        hasChanges = true;
-        console.log(`SensorContext: Trạng thái ngưỡng độ ẩm đất: ${soilMoistureExceedsThreshold ? 'VƯỢT NGƯỠNG' : 'BÌNH THƯỜNG'}`);
-      }
+  // Check thresholds function
+  const checkThresholds = (data) => {
+    console.log('SensorContext: Checking thresholds for data:', data);
+    console.log('SensorContext: Current thresholdAlerts:', thresholdAlerts);
+    console.log('SensorContext: Using threshold config:', thresholdConfig);
+
+    // Make sure we have valid data and thresholds to check
+    if (!data) {
+      console.warn('SensorContext: Missing data for threshold check');
+      return false;
     }
     
-    // Kiểm tra nhiệt độ
-    if (newData.temperature !== undefined) {
-      const temperatureExceedsThreshold = 
-        newData.temperature < thresholdConfig.temperature.min || 
-        newData.temperature > thresholdConfig.temperature.max;
+    if (!thresholdConfig) {
+      console.warn('SensorContext: Missing threshold config for check, using fallback thresholds');
       
-      if (newAlerts.temperature !== temperatureExceedsThreshold) {
-        newAlerts.temperature = temperatureExceedsThreshold;
-        hasChanges = true;
-        console.log(`SensorContext: Trạng thái ngưỡng nhiệt độ: ${temperatureExceedsThreshold ? 'VƯỢT NGƯỠNG' : 'BÌNH THƯỜNG'}`);
+      // Use sensible fallback thresholds if none available
+      const fallbackConfig = {
+        soilMoisture: { min: 20, max: 80 },   // Agriculture typically needs 20-80% moisture
+        temperature: { min: 18, max: 32 },     // Most plants thrive between 18-32°C
+        airHumidity: { min: 40, max: 80 }     // 40-80% is good for most plants
+      };
+      
+      // Set the fallback config
+      setThresholdConfig(fallbackConfig);
+      
+      // Continue with the fallback thresholds
+      return checkThresholds(data);
+    }
+
+    // Create a new object to track changes (start with current alerts)
+    let newAlerts = { ...thresholdAlerts };
+    let newTriggers = { ...deviceTriggers };
+    let alertsChanged = false;
+    let triggersChanged = false;
+
+    // Soil Moisture Check - Ảnh hưởng máy bơm và đèn
+    if (data.soilMoisture !== undefined && thresholdConfig.soilMoisture) {
+      const currentValue = Number(data.soilMoisture);
+      const minThreshold = Number(thresholdConfig.soilMoisture.min);
+      const maxThreshold = Number(thresholdConfig.soilMoisture.max);
+      
+      console.log(`SensorContext: Soil moisture check - Current: ${currentValue}, Min: ${minThreshold}, Max: ${maxThreshold}`);
+
+      // Check against thresholds
+      const isTooLow = !isNaN(currentValue) && !isNaN(minThreshold) && currentValue < minThreshold;
+      const isTooHigh = !isNaN(currentValue) && !isNaN(maxThreshold) && currentValue > maxThreshold;
+      const isNormal = !isTooLow && !isTooHigh;
+      
+      // Log the result of the check with more detail
+      console.log(`SensorContext: Soil moisture threshold check result - Below Min: ${isTooLow}, Above Max: ${isTooHigh}, Normal: ${isNormal}`);
+      
+      // Cập nhật triggers cho máy bơm và đèn
+      if (isTooLow !== newTriggers.pump.soilMoistureLow) {
+        newTriggers.pump.soilMoistureLow = isTooLow;
+        triggersChanged = true;
+        console.log(`SensorContext: Pump trigger (soil moisture low) updated to: ${isTooLow}`);
+      }
+      
+      if (isTooHigh !== newTriggers.light.soilMoistureHigh) {
+        newTriggers.light.soilMoistureHigh = isTooHigh;
+        triggersChanged = true;
+        console.log(`SensorContext: Light trigger (soil moisture high) updated to: ${isTooHigh}`);
+      }
+      
+      // Update alert status if different from current
+      if (isTooLow !== newAlerts.soilMoisture.low || isTooHigh !== newAlerts.soilMoisture.high) {
+        newAlerts.soilMoisture = {
+          low: isTooLow,
+          high: isTooHigh,
+          timestamp: new Date().toISOString()
+        };
+        alertsChanged = true;
+        console.log(`SensorContext: Soil moisture alert updated - Low: ${isTooLow}, High: ${isTooHigh}`);
       }
     }
-    
-    // Kiểm tra độ ẩm không khí
-    if (newData.airHumidity !== undefined) {
-      const airHumidityExceedsThreshold = 
-        newData.airHumidity < thresholdConfig.airHumidity.min || 
-        newData.airHumidity > thresholdConfig.airHumidity.max;
+
+    // Temperature Check - Ảnh hưởng máy bơm (cao) và đèn (thấp)
+    if (data.temperature !== undefined && thresholdConfig.temperature) {
+      const currentValue = Number(data.temperature);
+      const minThreshold = Number(thresholdConfig.temperature.min);
+      const maxThreshold = Number(thresholdConfig.temperature.max);
       
-      if (newAlerts.airHumidity !== airHumidityExceedsThreshold) {
-        newAlerts.airHumidity = airHumidityExceedsThreshold;
-        hasChanges = true;
-        console.log(`SensorContext: Trạng thái ngưỡng độ ẩm không khí: ${airHumidityExceedsThreshold ? 'VƯỢT NGƯỠNG' : 'BÌNH THƯỜNG'}`);
+      console.log(`SensorContext: Temperature check - Current: ${currentValue}, Min: ${minThreshold}, Max: ${maxThreshold}`);
+
+      // Check against thresholds
+      const isTooLow = !isNaN(currentValue) && !isNaN(minThreshold) && currentValue < minThreshold;
+      const isTooHigh = !isNaN(currentValue) && !isNaN(maxThreshold) && currentValue > maxThreshold;
+      const isNormal = !isTooLow && !isTooHigh;
+      
+      // Log the result of the check with more detail
+      console.log(`SensorContext: Temperature threshold check result - Below Min: ${isTooLow}, Above Max: ${isTooHigh}, Normal: ${isNormal}`);
+      
+      // Cập nhật triggers cho máy bơm (nhiệt độ cao) và đèn (nhiệt độ thấp)
+      if (isTooHigh !== newTriggers.pump.temperatureHigh) {
+        newTriggers.pump.temperatureHigh = isTooHigh;
+        triggersChanged = true;
+        console.log(`SensorContext: Pump trigger (temperature high) updated to: ${isTooHigh}`);
+      }
+      
+      if (isTooLow !== newTriggers.light.temperatureLow) {
+        newTriggers.light.temperatureLow = isTooLow;
+        triggersChanged = true;
+        console.log(`SensorContext: Light trigger (temperature low) updated to: ${isTooLow}`);
+      }
+      
+      // Update alert status if different from current
+      if (isTooLow !== newAlerts.temperature.low || isTooHigh !== newAlerts.temperature.high) {
+        newAlerts.temperature = {
+          low: isTooLow,
+          high: isTooHigh,
+          timestamp: new Date().toISOString()
+        };
+        alertsChanged = true;
+        console.log(`SensorContext: Temperature alert updated - Low: ${isTooLow}, High: ${isTooHigh}`);
       }
     }
-    
-    // Cập nhật state nếu có sự thay đổi
-    if (hasChanges) {
+
+    // Air Humidity Check - Ảnh hưởng máy bơm (thấp) và đèn (cao)
+    if (data.airHumidity !== undefined && thresholdConfig.airHumidity) {
+      const currentValue = Number(data.airHumidity);
+      const minThreshold = Number(thresholdConfig.airHumidity.min);
+      const maxThreshold = Number(thresholdConfig.airHumidity.max);
+      
+      console.log(`SensorContext: Air humidity check - Current: ${currentValue}, Min: ${minThreshold}, Max: ${maxThreshold}`);
+
+      // Check against thresholds
+      const isTooLow = !isNaN(currentValue) && !isNaN(minThreshold) && currentValue < minThreshold;
+      const isTooHigh = !isNaN(currentValue) && !isNaN(maxThreshold) && currentValue > maxThreshold;
+      const isNormal = !isTooLow && !isTooHigh;
+      
+      // Log the result of the check with more detail
+      console.log(`SensorContext: Air humidity threshold check result - Below Min: ${isTooLow}, Above Max: ${isTooHigh}, Normal: ${isNormal}`);
+      
+      // Cập nhật triggers cho máy bơm (độ ẩm thấp) và đèn (độ ẩm cao)
+      if (isTooLow !== newTriggers.pump.airHumidityLow) {
+        newTriggers.pump.airHumidityLow = isTooLow;
+        triggersChanged = true;
+        console.log(`SensorContext: Pump trigger (air humidity low) updated to: ${isTooLow}`);
+      }
+      
+      if (isTooHigh !== newTriggers.light.airHumidityHigh) {
+        newTriggers.light.airHumidityHigh = isTooHigh;
+        triggersChanged = true;
+        console.log(`SensorContext: Light trigger (air humidity high) updated to: ${isTooHigh}`);
+      }
+      
+      // Update alert status if different from current
+      if (isTooLow !== newAlerts.airHumidity.low || isTooHigh !== newAlerts.airHumidity.high) {
+        newAlerts.airHumidity = {
+          low: isTooLow,
+          high: isTooHigh,
+          timestamp: new Date().toISOString()
+        };
+        alertsChanged = true;
+        console.log(`SensorContext: Air humidity alert updated - Low: ${isTooLow}, High: ${isTooHigh}`);
+      }
+    }
+
+    // Tóm tắt trạng thái cảnh báo
+    console.log('SensorContext: Threshold alert summary:', newAlerts);
+    console.log('SensorContext: Device trigger summary:', newTriggers);
+
+    // Cập nhật state nếu có thay đổi
+    if (alertsChanged) {
+      console.log('SensorContext: Updating threshold alerts');
+      console.log('SensorContext: Old alerts:', thresholdAlerts);
+      console.log('SensorContext: New alerts:', newAlerts);
       setThresholdAlerts(newAlerts);
-      
-      // Quyết định trạng thái máy bơm dựa trên ngưỡng
-      updatePumpBasedOnThresholds(newData, newAlerts);
     }
     
-    return newAlerts;
+    if (triggersChanged) {
+      console.log('SensorContext: Updating device triggers');
+      console.log('SensorContext: Old triggers:', deviceTriggers);
+      console.log('SensorContext: New triggers:', newTriggers);
+      setDeviceTriggers(newTriggers);
+      
+      // Cập nhật trạng thái thiết bị dựa trên triggers mới
+      updateDevicesBasedOnTriggers(newTriggers);
+    }
+
+    return true;
   };
   
-  // Hàm cập nhật trạng thái máy bơm dựa trên các cảm biến
-  const updatePumpBasedOnThresholds = (newData, alerts) => {
-    console.log('SensorContext: Cập nhật trạng thái máy bơm dựa trên ngưỡng');
+  // Hàm cập nhật trạng thái các thiết bị dựa trên triggers
+  const updateDevicesBasedOnTriggers = (triggers) => {
+    console.log('SensorContext: Updating devices based on triggers:', triggers);
     
-    // Kiểm tra xem có bất kỳ cảm biến nào vượt ngưỡng không
-    const anyThresholdExceeded = alerts.soilMoisture || alerts.temperature || alerts.airHumidity;
+    // Xử lý máy bơm - bật khi: đất/không khí khô hoặc nhiệt độ cao
+    const shouldPumpBeOn = triggers.pump.soilMoistureLow || 
+                           triggers.pump.airHumidityLow || 
+                           triggers.pump.temperatureHigh;
     
-    // Lấy trạng thái máy bơm hiện tại
-    const currentPumpStatus = newData.pumpWater?.status;
-    const currentPumpSpeed = newData.pumpWater?.speed ;
+    // Xử lý đèn - bật khi: đất/không khí ẩm hoặc nhiệt độ thấp
+    const shouldLightBeOn = triggers.light.soilMoistureHigh || 
+                            triggers.light.airHumidityHigh || 
+                            triggers.light.temperatureLow;
+    
+    console.log(`SensorContext: Pump should be ${shouldPumpBeOn ? 'ON' : 'OFF'}`);
+    console.log(`SensorContext: Light should be ${shouldLightBeOn ? 'ON' : 'OFF'}`);
+    
+    // Lấy trạng thái hiện tại của các thiết bị
+    const currentPumpStatus = sensorData.pumpWater?.status || 'Off';
+    const currentPumpSpeed = sensorData.pumpWater?.speed || 0;
+    const currentLightStatus = sensorData.light?.status || 'Off';
     
     // Quyết định trạng thái mới cho máy bơm
     let newPumpStatus = currentPumpStatus;
     let newPumpSpeed = currentPumpSpeed;
+    let pumpChanged = false;
     
-    // Nếu có bất kỳ cảm biến nào vượt ngưỡng, bật máy bơm (nếu chưa bật)
-    if (anyThresholdExceeded) {
-      if (currentPumpStatus !== 'On' || currentPumpSpeed === 0) {
-        newPumpStatus = 'On';
-        newPumpSpeed = 100; // Tốc độ mặc định khi bật máy bơm
-        console.log('SensorContext: BẬT máy bơm do có cảm biến vượt ngưỡng');
-      }
-    } 
-    // Chỉ tắt máy bơm khi TẤT CẢ các cảm biến đều trong ngưỡng an toàn
-    else if (!anyThresholdExceeded && currentPumpStatus === 'On') {
+    if (shouldPumpBeOn && (currentPumpStatus !== 'On' || currentPumpSpeed === 0)) {
+      newPumpStatus = 'On';
+      newPumpSpeed = 100; // Tốc độ mặc định khi bật máy bơm
+      pumpChanged = true;
+      console.log('SensorContext: BẬT máy bơm theo triggers');
+    } else if (!shouldPumpBeOn && currentPumpStatus === 'On') {
       newPumpStatus = 'Off';
       newPumpSpeed = 0;
-      console.log('SensorContext: TẮT máy bơm do tất cả cảm biến đều trong ngưỡng an toàn');
+      pumpChanged = true;
+      console.log('SensorContext: TẮT máy bơm vì không còn triggers kích hoạt');
     }
     
-    // Chỉ cập nhật nếu có thay đổi
-    if (newPumpStatus !== currentPumpStatus || newPumpSpeed !== currentPumpSpeed) {
-      setSensorData(prev => ({
-        ...prev,
-        pumpWater: {
-          ...prev.pumpWater,
-          status: newPumpStatus,
-          speed: newPumpSpeed
-        }
-      }));
-      
-      console.log(`SensorContext: Đã cập nhật máy bơm: ${newPumpStatus} (${newPumpSpeed}%)`);
+    // Quyết định trạng thái mới cho đèn
+    let newLightStatus = currentLightStatus;
+    let lightChanged = false;
+    
+    if (shouldLightBeOn && currentLightStatus !== 'On') {
+      newLightStatus = 'On';
+      lightChanged = true;
+      console.log('SensorContext: BẬT đèn theo triggers');
+    } else if (!shouldLightBeOn && currentLightStatus === 'On') {
+      newLightStatus = 'Off';
+      lightChanged = true;
+      console.log('SensorContext: TẮT đèn vì không còn triggers kích hoạt');
+    }
+    
+    // Chỉ cập nhật state nếu có thay đổi
+    if (pumpChanged || lightChanged) {
+      setSensorData(prev => {
+        const updated = {
+          ...prev,
+          pumpWater: {
+            ...prev.pumpWater,
+            status: newPumpStatus,
+            speed: newPumpSpeed
+          },
+          light: {
+            ...prev.light,
+            status: newLightStatus
+          }
+        };
+        
+        console.log('SensorContext: Updated devices state:', {
+          pump: `${newPumpStatus} (${newPumpSpeed}%)`,
+          light: newLightStatus
+        });
+        
+        return updated;
+      });
+    } else {
+      console.log('SensorContext: No changes needed for devices');
     }
   };
 
@@ -347,62 +524,59 @@ export const SensorProvider = ({ children }) => {
       }
     });
     
-    // Cập nhật dữ liệu mới từ socket
-    setSensorData(prev => {
-      const updated = {
-        ...prev,
-        loading: false,
-        error: null
+    // Tạo object dữ liệu mới để cập nhật và kiểm tra ngưỡng
+    const updatedData = { ...sensorData };
+    
+    // Cập nhật các giá trị mới từ socketData
+    if (socketData.soilMoisture !== undefined) {
+      updatedData.soilMoisture = socketData.soilMoisture;
+    }
+    
+    if (socketData.temperature !== undefined) {
+      updatedData.temperature = socketData.temperature;
+    }
+    
+    if (socketData.airHumidity !== undefined) {
+      updatedData.airHumidity = socketData.airHumidity;
+    }
+    
+    if (socketData.pumpWater) {
+      // Get the speed value - handle both field names
+      const pumpSpeed = socketData.pumpWater.speed !== undefined ? socketData.pumpWater.speed : 
+                      (socketData.pumpWater.pumpSpeed !== undefined ? socketData.pumpWater.pumpSpeed : updatedData.pumpWater?.speed);
+      
+      // Always derive status from speed
+      const pumpStatus = pumpSpeed > 0 ? 'On' : 'Off';
+      
+      updatedData.pumpWater = {
+        ...updatedData.pumpWater,
+        status: pumpStatus,
+        speed: pumpSpeed
       };
       
-      // Chỉ cập nhật các giá trị được cung cấp
-      if (socketData.soilMoisture !== undefined) {
-        updated.soilMoisture = socketData.soilMoisture;
-      }
-      
-      if (socketData.temperature !== undefined) {
-        updated.temperature = socketData.temperature;
-      }
-      
-      if (socketData.airHumidity !== undefined) {
-        updated.airHumidity = socketData.airHumidity;
-      }
-      
-      if (socketData.pumpWater) {
-        // Get the speed value - handle both field names
-        const pumpSpeed = socketData.pumpWater.speed !== undefined ? socketData.pumpWater.speed : 
-                        (socketData.pumpWater.pumpSpeed !== undefined ? socketData.pumpWater.pumpSpeed : prev.pumpWater?.speed );
-        
-        // Always derive status from speed
-        const pumpStatus = pumpSpeed > 0 ? 'On' : 'Off';
-        
-        updated.pumpWater = {
-          ...prev.pumpWater,
-          status: pumpStatus,
-          speed: pumpSpeed
-        };
-        
-        console.log('SensorContext: Updated pump data from socket:', updated.pumpWater);
-      }
-      
-      if (socketData.light) {
-        updated.light = {
-          ...prev.light,
-          ...socketData.light
-        };
-      }
-      
-      return updated;
-    });
+      console.log('SensorContext: Updated pump data from socket:', updatedData.pumpWater);
+    }
+    
+    if (socketData.light) {
+      updatedData.light = {
+        ...updatedData.light,
+        ...socketData.light
+      };
+    }
+    
+    // Cập nhật loading và error status
+    updatedData.loading = false;
+    updatedData.error = null;
+    
+    // Cập nhật state với dữ liệu mới
+    setSensorData(updatedData);
     
     // Đánh dấu rằng đã kết nối socket
     setSocketConnected(true);
     
-    // Thêm việc kiểm tra ngưỡng sau khi cập nhật dữ liệu
-    // Sử dụng setTimeout để đảm bảo dữ liệu đã được cập nhật trong state
-    setTimeout(() => {
-      checkThresholds(sensorData);
-    }, 100);
+    // Kiểm tra ngưỡng ngay lập tức với dữ liệu mới
+    console.log('SensorContext: Kiểm tra ngưỡng sau khi cập nhật từ socket');
+    checkThresholds(updatedData);
     
     return true;
   };
@@ -662,14 +836,21 @@ export const SensorProvider = ({ children }) => {
     
     // Thêm các hàm mới
     checkThresholds,
-    updatePumpBasedOnThresholds,
+    updateDevicesBasedOnTriggers,
     updateFromSocketData,
     
     // Thêm phương thức để cập nhật từ API
     updateFromAPI: async (apiService) => {
       try {
+        // Get latest data from API
         const result = await apiService.getLatestSensorData();
         console.log('SensorContext: API result:', result);
+        
+        // Check if we're using fallback data (indicating API errors)
+        const isUsingFallbackData = result.hasFallbackData === true;
+        if (isUsingFallbackData) {
+          console.warn('SensorContext: API returned fallback data, some or all sensors are using cached/fallback values');
+        }
         
         // Tải cấu hình ngưỡng từ API nếu có thể
         try {
@@ -680,6 +861,7 @@ export const SensorProvider = ({ children }) => {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("token")}`,
             },
+            timeout: 5000 // Add timeout to prevent hanging
           });
           
           if (configResponse.data && configResponse.data.success && configResponse.data.config) {
@@ -689,16 +871,27 @@ export const SensorProvider = ({ children }) => {
           }
         } catch (configError) {
           console.error('SensorContext: Lỗi khi tải cấu hình ngưỡng:', configError);
+          
+          // If we can't load config from API, use sensible defaults
+          if (!thresholdConfig || Object.keys(thresholdConfig).length === 0) {
+            console.warn('SensorContext: Setting default threshold config due to API error');
+            const fallbackThresholds = {
+              soilMoisture: { min: 20, max: 80 },  // Agriculture typically needs 20-80% moisture
+              temperature: { min: 18, max: 32 },    // Most plants thrive between 18-32°C
+              airHumidity: { min: 40, max: 80 }     // 40-80% is good for most plants
+            };
+            setThresholdConfig(fallbackThresholds);
+          }
         }
         
-        if (result.success && result.data && result.data.length > 0) {
+        if (result && result.success && result.data && result.data.length > 0) {
           // Lưu dữ liệu trước đó
           setPrevData({
-            soilMoisture: sensorData.soilMoisture ,
-            temperature: sensorData.temperature ,
-            airHumidity: sensorData.airHumidity ,
+            soilMoisture: sensorData.soilMoisture,
+            temperature: sensorData.temperature,
+            airHumidity: sensorData.airHumidity,
             pumpWater: {
-              speed: sensorData.pumpWater?.speed 
+              speed: sensorData.pumpWater?.speed || 0
             },
             light: {
               status: sensorData.light?.status || 'Off'
@@ -707,12 +900,12 @@ export const SensorProvider = ({ children }) => {
           
           // Khởi tạo dữ liệu mới, sử dụng giá trị hiện tại cho các giá trị không được cập nhật
           let newSensorData = {
-            soilMoisture: sensorData.soilMoisture ,
-            temperature: sensorData.temperature ,
-            airHumidity: sensorData.airHumidity ,
+            soilMoisture: sensorData.soilMoisture,
+            temperature: sensorData.temperature,
+            airHumidity: sensorData.airHumidity,
             pumpWater: {
               status: sensorData.pumpWater?.status || 'Off',
-              speed: sensorData.pumpWater?.speed 
+              speed: sensorData.pumpWater?.speed || 0
             },
             light: {
               status: sensorData.light?.status || 'Off'
@@ -723,19 +916,35 @@ export const SensorProvider = ({ children }) => {
           
           // Flag để theo dõi xem các loại dữ liệu đã được cập nhật chưa
           let pumpUpdated = false;
+          let temperatureUpdated = false;
+          let humidityUpdated = false;
+          let soilMoistureUpdated = false;
+          let lightUpdated = false;
           
           // Dữ liệu từ API đã được lọc cho user hiện tại, vì backend đã check userId
           for (const sensor of result.data) {
-            if (sensor.deviceType === 'soil_moisture' && 'soilMoisture' in sensor) {
+            // Check if this sensor data is a fallback (not from real API)
+            const isFallback = sensor.isFallback === true;
+            if (isFallback) {
+              console.warn(`SensorContext: Using fallback data for ${sensor.deviceType}`);
+            }
+            
+            if (sensor?.deviceType === 'soil_moisture' && 'soilMoisture' in sensor) {
               newSensorData.soilMoisture = sensor.soilMoisture;
-            } else if (sensor.deviceType === 'temperature_humidity') {
+              soilMoistureUpdated = true;
+              console.log(`SensorContext: Updated soil moisture from ${isFallback ? 'fallback' : 'API'}: ${sensor.soilMoisture}%`);
+            } else if (sensor?.deviceType === 'temperature_humidity') {
               if ('temperature' in sensor) {
                 newSensorData.temperature = sensor.temperature;
+                temperatureUpdated = true;
+                console.log(`SensorContext: Updated temperature from ${isFallback ? 'fallback' : 'API'}: ${sensor.temperature}°C`);
               }
               if ('airHumidity' in sensor) {
                 newSensorData.airHumidity = sensor.airHumidity;
+                humidityUpdated = true;
+                console.log(`SensorContext: Updated air humidity from ${isFallback ? 'fallback' : 'API'}: ${sensor.airHumidity}%`);
               }
-            } else if (sensor.deviceType === 'pump_water') {
+            } else if (sensor?.deviceType === 'pump_water') {
               pumpUpdated = true;
               // Get the pump speed value - handle both pumpSpeed (from API) and speed (from context) field names
               const pumpSpeed = sensor.pumpSpeed !== undefined ? sensor.pumpSpeed : 
@@ -750,26 +959,38 @@ export const SensorProvider = ({ children }) => {
                 speed: pumpSpeed
               };
               
-              console.log('SensorContext: Updated pump data from API:', newSensorData.pumpWater);
-            } else if (sensor.deviceType === 'light') {
+              console.log(`SensorContext: Updated pump data from ${isFallback ? 'fallback' : 'API'}: ${pumpStatus} (${pumpSpeed}%)`);
+            } else if (sensor?.deviceType === 'light') {
               newSensorData.light = {
                 status: sensor.status || 'Off'
               };
+              lightUpdated = true;
+              console.log(`SensorContext: Updated light status from ${isFallback ? 'fallback' : 'API'}: ${sensor.status}`);
             }
           }
           
-          // If no pump data was updated from API, log this information
-          if (!pumpUpdated) {
-            console.log('SensorContext: No pump data in API response, keeping existing values:', newSensorData.pumpWater);
+          // Log what data was updated vs. not updated
+          if (!soilMoistureUpdated) console.warn('SensorContext: No soil moisture data updated from API');
+          if (!temperatureUpdated) console.warn('SensorContext: No temperature data updated from API');
+          if (!humidityUpdated) console.warn('SensorContext: No humidity data updated from API');
+          if (!pumpUpdated) console.warn('SensorContext: No pump data updated from API, keeping existing values:', newSensorData.pumpWater);
+          if (!lightUpdated) console.warn('SensorContext: No light status updated from API');
+          
+          // Check if any data was updated at all
+          const anyUpdated = soilMoistureUpdated || temperatureUpdated || humidityUpdated || pumpUpdated || lightUpdated;
+          if (!anyUpdated) {
+            console.warn('SensorContext: No data was updated from API call');
           }
           
           // Cập nhật state
           setSensorData(newSensorData);
           
           // Kiểm tra ngưỡng với dữ liệu mới
-          setTimeout(() => {
-            checkThresholds(newSensorData);
-          }, 100);
+          if (checkThresholds) {
+            setTimeout(() => {
+              checkThresholds(newSensorData);
+            }, 100);
+          }
           
           // Ensure data is saved to localStorage immediately
           saveToLocalStorage(SENSOR_DATA_KEY, {
@@ -782,17 +1003,37 @@ export const SensorProvider = ({ children }) => {
           
           return newSensorData;
         } else {
-          console.log('SensorContext: No sensor data or data format issue, keeping existing data');
+          console.log('SensorContext: No sensor data or data format issue from API, keeping existing data');
+          
+          // Mark loading as complete, but keep existing data
           setSensorData(prev => ({ ...prev, loading: false }));
+          
+          // Still check thresholds with existing data
+          if (checkThresholds) {
+            setTimeout(() => {
+              checkThresholds(sensorData);
+            }, 100);
+          }
+          
           return sensorData;
         }
       } catch (error) {
         console.error('SensorContext: Error fetching sensor data from API:', error);
+        
+        // Set error state but keep existing sensor data
         setSensorData(prev => ({ 
           ...prev, 
           loading: false,
           error: error.message || 'Failed to fetch sensor data'
         }));
+        
+        // Still check thresholds with existing data
+        if (checkThresholds) {
+          setTimeout(() => {
+            checkThresholds(sensorData);
+          }, 100);
+        }
+        
         return sensorData;
       }
     }

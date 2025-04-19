@@ -214,15 +214,15 @@ const DeviceSetting = () => {
     };
 
     // Nếu có feed, chuẩn bị dữ liệu feed cho form
-    if (device.feed && device.feed.length > 0) {
-      // Tạo mảng feeds để đổ dữ liệu vào form
+    if (device.feed && Array.isArray(device.feed) && device.feed.length > 0) {
       initialValues.feeds = device.feed.map(feed => ({
         id: feed.id,
         name: feed.name,
-        feedKey: feed.feedKey,
-        minValue: feed.minValue,
-        maxValue: feed.maxValue
+        feedKey: feed.feedKey
       }));
+    } else {
+      // Initialize with empty feed if no feeds exist
+      initialValues.feeds = [{}];
     }
 
     // Reset form và đặt giá trị mới
@@ -240,6 +240,19 @@ const DeviceSetting = () => {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
+
+      // Validate feeds array
+      if (!values.feeds || !Array.isArray(values.feeds) || values.feeds.length === 0) {
+        message.error("Cần thêm ít nhất một feed cho thiết bị");
+        return;
+      }
+      
+      // Check if each feed has name and feedKey
+      const invalidFeeds = values.feeds.filter(feed => !feed.name || !feed.feedKey);
+      if (invalidFeeds.length > 0) {
+        message.error("Mỗi feed phải có tên và feedKey");
+        return;
+      }
 
       if (editingDevice) {
         console.log('Dữ liệu cập nhật thiết bị:', JSON.stringify(values, null, 2));
@@ -261,25 +274,31 @@ const DeviceSetting = () => {
           return;
         }
 
-        // Thêm thiết bị mới
-        // Đảm bảo mỗi feed có name và feedKey
-        if (values.feeds && values.feeds.length > 0) {
-          for (const feed of values.feeds) {
-            if (!feed.name || !feed.feedKey) {
-              message.error("Mỗi feed phải có tên và feedKey");
-              return;
-            }
-          }
-        } else {
-          message.error("Cần thêm ít nhất một feed cho thiết bị");
-          return;
-        }
-
         // Sử dụng DeviceServices.addDevice thay vì gọi axios trực tiếp
         try {
           const result = await DeviceServices.addDevice(values);
           if (result.success) {
             message.success(result.message || "Thêm thiết bị thành công");
+            
+            // Activate the newly created device to connect it to MQTT
+            const deviceId = result.data?.device?.id;
+            if (deviceId) {
+              message.loading("Đang kích hoạt thiết bị...", 2);
+              setTimeout(async () => {
+                try {
+                  const activationResult = await DeviceServices.activateDevice(deviceId);
+                  if (activationResult.success) {
+                    message.success("Kích hoạt thiết bị thành công");
+                  } else {
+                    message.warning("Thiết bị đã được tạo nhưng chưa được kích hoạt. Vui lòng kích hoạt thủ công.");
+                  }
+                } catch (activationError) {
+                  console.error("Error activating device:", activationError);
+                  message.warning("Thiết bị đã được tạo nhưng chưa được kích hoạt. Vui lòng kích hoạt thủ công.");
+                }
+              }, 2000); // Delay kích hoạt để đảm bảo thiết bị đã được lưu vào DB
+            }
+            
             fetchDevices(); // Cập nhật danh sách thiết bị
             setModalVisible(false);
           } else {
@@ -316,6 +335,26 @@ const DeviceSetting = () => {
       message.error("Đã xảy ra lỗi khi xóa thiết bị");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleActivateDevice = async (deviceId) => {
+    if (!checkPermission()) {
+      return;
+    }
+
+    try {
+      message.loading("Đang kích hoạt thiết bị...", 2);
+      const activationResult = await DeviceServices.activateDevice(deviceId);
+      if (activationResult.success) {
+        message.success("Kích hoạt thiết bị thành công");
+        fetchDevices(); // Cập nhật danh sách thiết bị
+      } else {
+        message.warning("Thiết bị đã được tạo nhưng chưa được kích hoạt. Vui lòng kích hoạt thủ công.");
+      }
+    } catch (error) {
+      console.error("Error activating device:", error);
+      message.error("Đã xảy ra lỗi khi kích hoạt thiết bị");
     }
   };
 
@@ -405,6 +444,16 @@ const DeviceSetting = () => {
                 disabled={!hasPermission}
               />
             </Popconfirm>
+          </Tooltip>
+
+          <Tooltip title={!hasPermission ? "Tài khoản đang chờ phê duyệt" : "Kích hoạt thiết bị"}>
+            <Button
+              type="default"
+              size="small"
+              icon={<SyncOutlined />}
+              onClick={() => handleActivateDevice(record.id)}
+              disabled={!hasPermission}
+            />
           </Tooltip>
         </Space>
       ),
@@ -504,6 +553,59 @@ const DeviceSetting = () => {
           <Form.Item name="description" label="Mô tả">
             <TextArea rows={4} placeholder="Nhập mô tả về thiết bị (tùy chọn)" />
           </Form.Item>
+
+          <Divider orientation="left">Thông tin Feed</Divider>
+          <Form.List name="feeds" initialValue={[{}]}>
+            {(fields, { add, remove }) => (
+              <>
+                {fields.map(({ key, name, ...restField }) => (
+                  <div key={key} style={{ marginBottom: 20 }}>
+                    <Row gutter={16}>
+                      <Col span={11}>
+                        <Form.Item
+                          {...restField}
+                          name={[name, "name"]}
+                          label="Tên Feed"
+                          rules={[{ required: true, message: "Vui lòng nhập tên feed" }]}
+                        >
+                          <Input placeholder="Nhập tên feed" />
+                        </Form.Item>
+                      </Col>
+                      <Col span={11}>
+                        <Form.Item
+                          {...restField}
+                          name={[name, "feedKey"]}
+                          label="Feed Key"
+                          rules={[{ required: true, message: "Vui lòng nhập feed key" }]}
+                        >
+                          <Input placeholder="Nhập feed key" />
+                        </Form.Item>
+                      </Col>
+                      <Col span={2} style={{ display: 'flex', alignItems: 'center', marginTop: 30 }}>
+                        {fields.length > 1 && (
+                          <MinusCircleOutlined
+                            style={{ color: '#ff4d4f' }}
+                            onClick={() => remove(name)}
+                          />
+                        )}
+                      </Col>
+                    </Row>
+                    {fields.length > 1 && <Divider dashed />}
+                  </div>
+                ))}
+                <Form.Item>
+                  <Button
+                    type="dashed"
+                    onClick={() => add()}
+                    block
+                    icon={<PlusOutlined />}
+                  >
+                    Thêm Feed
+                  </Button>
+                </Form.Item>
+              </>
+            )}
+          </Form.List>
         </Form>
       </Modal>
     </div>

@@ -3,9 +3,25 @@ import { Card, Form, Input, Button, Tabs, Spin, Divider, message, Typography } f
 import { UserOutlined, MailOutlined, PhoneOutlined, HomeOutlined, LockOutlined } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext";
 import UserServices from "../../services/UserServices";
+import { format } from 'date-fns';
+import vi from 'date-fns/locale/vi'; // Cho ngôn ngữ tiếng Việt
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
+
+const formatDate = (isoDate) => {
+  if (!isoDate) return "Không có thông tin";
+
+  const date = new Date(isoDate);
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  const hour = date.getHours().toString().padStart(2, '0');
+  const minute = date.getMinutes().toString().padStart(2, '0');
+
+  return `Ngày ${day}/${month}/${year} lúc ${hour} giờ ${minute} phút`;
+};
+
 
 const ProfileSettings = () => {
   const { user } = useAuth();
@@ -215,7 +231,7 @@ const ProfileSettings = () => {
               <div>
                 <Text strong>Ngày tạo tài khoản:</Text>
                 <Text className="ml-2">
-                  {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "Không có thông tin"}
+                  {formatDate(user.createdAt) || "Không có thông tin"}
                 </Text>
               </div>
               

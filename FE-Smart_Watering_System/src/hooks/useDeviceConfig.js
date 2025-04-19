@@ -45,13 +45,51 @@ export const useDeviceConfig = () => {
     };
 
     const handleScheduleChange = (scheduleType, field, value) => {
-        setDeviceConfig(prev => ({
-            ...prev,
-            [scheduleType]: {
-                ...prev[scheduleType],
-                [field]: value
+        console.log(`handleScheduleChange called with:`, { scheduleType, field, value });
+        
+        // Case 1: Called with (scheduleType, field, value)
+        if (typeof scheduleType === 'string' && typeof field === 'string' && value !== undefined) {
+            console.log(`Setting ${scheduleType}.${field} to:`, value);
+            setDeviceConfig(prev => ({
+                ...prev,
+                [scheduleType]: {
+                    ...prev[scheduleType],
+                    [field]: value
+                }
+            }));
+            return;
+        }
+        
+        // Case 2: Called with object format { scheduleType, field, value }
+        if (typeof scheduleType === 'object' && field === undefined && value === undefined) {
+            const { scheduleType: type, field: fieldName, value: fieldValue } = scheduleType;
+            if (type && fieldName) {
+                console.log(`Legacy format detected - Setting ${type}.${fieldName} to:`, fieldValue);
+                setDeviceConfig(prev => ({
+                    ...prev,
+                    [type]: {
+                        ...prev[type],
+                        [fieldName]: fieldValue
+                    }
+                }));
+                return;
             }
-        }));
+        }
+        
+        // Case 3: Called with old API (scheduleType, propertyName)
+        if (typeof scheduleType === 'string' && typeof field === 'string' && value === undefined) {
+            console.log(`Old format detected - Handling "${scheduleType}" with data:`, field);
+            setDeviceConfig(prev => ({
+                ...prev,
+                [scheduleType]: {
+                    ...prev[scheduleType],
+                    ...field
+                }
+            }));
+            return;
+        }
+        
+        console.error('Unsupported parameter format for handleScheduleChange:', { scheduleType, field, value });
     };
 
     const handleSaveConfig = async () => {
@@ -66,7 +104,7 @@ export const useDeviceConfig = () => {
             let hasCreatedSchedule = false;
 
             // Tạo lịch trình tưới nước nếu thiết bị là máy bơm và lịch trình đã được bật
-            if (deviceType === 'pump_water' && deviceConfig.wateringSchedule.enabled) {
+            if (deviceType === 'pump_water' && deviceConfig.autoMode) {
                 const waterScheduleData = {
                     deviceId: selectedDevice.id,
                     scheduleType: 'watering',
@@ -78,55 +116,84 @@ export const useDeviceConfig = () => {
                     autoMode: deviceConfig.autoMode
                 };
 
-                await axios.post(
-                    API_ENDPOINTS.SCHEDULES.CREATE,
-                    waterScheduleData,
-                    {
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    }
-                );
+                console.log('Sending watering schedule data:', JSON.stringify(waterScheduleData, null, 2));
 
-                console.log('Đã tạo lịch trình tưới nước:', waterScheduleData);
-                hasCreatedSchedule = true;
+                try {
+                    const response = await axios.post(
+                        API_ENDPOINTS.SCHEDULES.CREATE,
+                        waterScheduleData,
+                        {
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            timeout: 15000 // 15 second timeout
+                        }
+                    );
+
+                    console.log('Watering schedule creation response:', response.data);
+                    if (response.data && response.data.success) {
+                        console.log('Đã tạo lịch trình tưới nước thành công:', response.data);
+                        hasCreatedSchedule = true;
+                    } else {
+                        console.error('Server returned unsuccessful response:', response.data);
+                        toast.error("Lỗi tạo lịch trình tưới nước: " + (response.data?.message || "Phản hồi không thành công từ máy chủ"));
+                    }
+                } catch (error) {
+                    console.error('Error creating watering schedule:', error);
+                    toast.error("Lỗi tạo lịch trình tưới nước: " + (error.response?.data?.message || error.message));
+                }
             }
 
             // Tạo lịch trình chiếu sáng nếu thiết bị là đèn và lịch trình đã được bật
-            if (deviceType === 'light' && deviceConfig.lightSchedule.enabled) {
+            if (deviceType === 'light' && deviceConfig.autoMode) {
                 const lightScheduleData = {
                     deviceId: selectedDevice.id,
                     scheduleType: 'lighting',
                     enabled: deviceConfig.lightSchedule.enabled,
-                    startTime: deviceConfig.lightSchedule.onTime,  // Sửa tên trường từ onTime sang startTime
-                    endTime: deviceConfig.lightSchedule.offTime,   // Sửa tên trường từ offTime sang endTime
+                    startTime: deviceConfig.lightSchedule.onTime,
+                    endTime: deviceConfig.lightSchedule.offTime,
                     days: deviceConfig.lightSchedule.days,
                     autoMode: deviceConfig.autoMode
                 };
 
-                await axios.post(
-                    API_ENDPOINTS.SCHEDULES.CREATE,
-                    lightScheduleData,
-                    {
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    }
-                );
+                console.log('Sending lighting schedule data:', JSON.stringify(lightScheduleData, null, 2));
 
-                console.log('Đã tạo lịch trình chiếu sáng:', lightScheduleData);
-                hasCreatedSchedule = true;
+                try {
+                    const response = await axios.post(
+                        API_ENDPOINTS.SCHEDULES.CREATE,
+                        lightScheduleData,
+                        {
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            timeout: 15000 // 15 second timeout
+                        }
+                    );
+
+                    console.log('Lighting schedule creation response:', response.data);
+                    if (response.data && response.data.success) {
+                        console.log('Đã tạo lịch trình chiếu sáng thành công:', response.data);
+                        hasCreatedSchedule = true;
+                    } else {
+                        console.error('Server returned unsuccessful response:', response.data);
+                        toast.error("Lỗi tạo lịch trình chiếu sáng: " + (response.data?.message || "Phản hồi không thành công từ máy chủ"));
+                    }
+                } catch (error) {
+                    console.error('Error creating lighting schedule:', error);
+                    toast.error("Lỗi tạo lịch trình chiếu sáng: " + (error.response?.data?.message || error.message));
+                }
             }
 
             // Nếu không tạo lịch trình nào (chỉ bật/tắt autoMode), thông báo cho người dùng
-            if (!hasCreatedSchedule) {
-                toast.info("Không có lịch trình nào được tạo vì bạn chưa bật lịch trình nào.");
+            if (!hasCreatedSchedule && deviceConfig.autoMode) {
+                toast.info("Bạn đã bật chế độ tự động nhưng chưa bật lịch trình nào. Vui lòng bật ít nhất một lịch trình.");
+            } else if (!hasCreatedSchedule && !deviceConfig.autoMode) {
+                toast.info("Chế độ tự động đã tắt. Thiết bị sẽ hoạt động ở chế độ thủ công.");
             } else {
                 toast.success("Lịch trình đã được tạo thành công");
+                // Đóng modal cấu hình sau khi lưu thành công
+                handleCloseConfig();
             }
-
-            // Đóng modal cấu hình
-            handleCloseConfig();
         } catch (error) {
             console.error("Error saving schedule:", error);
             toast.error("Lỗi khi lưu lịch trình: " + (error.response?.data?.message || error.message));

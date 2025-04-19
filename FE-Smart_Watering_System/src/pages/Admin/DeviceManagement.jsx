@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, Select, message, Tag, Space, Spin } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { Table, Button, Modal, Form, Input, Select, message, Tag, Space, Spin, Divider, Row, Col } from 'antd';
+import { DeleteOutlined, EditOutlined, PlusOutlined, ExclamationCircleOutlined, SyncOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { 
@@ -10,6 +10,7 @@ import {
   deleteDevice, 
   getAdminProfile
 } from '../../services/AdminServices';
+import DeviceServices from '../../services/DeviceServices'; // Import DeviceServices for activation
 
 const { Option } = Select;
 const { confirm } = Modal;
@@ -113,12 +114,26 @@ const DeviceManagement = () => {
     setSelectedDevice(device);
     setModalMode('edit');
     
-    deviceForm.setFieldsValue({
+    // Create form values with basic device info
+    const formValues = {
       deviceCode: device.deviceCode || '',
       deviceType: device.deviceType || '',
       description: device.description || ''
-    });
+    };
     
+    // Add feed data if available
+    if (device.feed && Array.isArray(device.feed) && device.feed.length > 0) {
+      formValues.feeds = device.feed.map(feed => ({
+        name: feed.name,
+        feedKey: feed.feedKey,
+        id: feed.id
+      }));
+    } else {
+      // Initialize with empty feed if no feeds exist
+      formValues.feeds = [{}];
+    }
+    
+    deviceForm.setFieldsValue(formValues);
     setDeviceModalVisible(true);
   };
 
@@ -139,8 +154,43 @@ const DeviceManagement = () => {
       // Create a copy of values
       const deviceData = { ...values };
       
+      // Validate feeds array
+      if (!deviceData.feeds || !Array.isArray(deviceData.feeds) || deviceData.feeds.length === 0) {
+        message.error("At least one feed is required");
+        setLoading(false);
+        return;
+      }
+      
+      // Validate each feed has name and feedKey
+      const invalidFeeds = deviceData.feeds.filter(feed => !feed.name || !feed.feedKey);
+      if (invalidFeeds.length > 0) {
+        message.error("Each feed must have a name and feed key");
+        setLoading(false);
+        return;
+      }
+      
       if (modalMode === 'create') {
         response = await createDevice(deviceData);
+        
+        // If device was created successfully, activate it
+        if (response?.success && response?.data?.device?.id) {
+          message.loading("Activating device...", 2);
+          const deviceId = response.data.device.id;
+          
+          setTimeout(async () => {
+            try {
+              const activationResult = await DeviceServices.activateDevice(deviceId);
+              if (activationResult.success) {
+                message.success("Device activated successfully");
+              } else {
+                message.warning("Device created but activation failed. Please activate manually.");
+              }
+            } catch (activationError) {
+              console.error("Error activating device:", activationError);
+              message.warning("Device created but activation failed. Please activate manually.");
+            }
+          }, 2000); // Delay activation to ensure device is saved in DB
+        }
       } else if (selectedDevice && selectedDevice.id) {
         response = await updateDevice(selectedDevice.id, deviceData);
       } else {
@@ -196,6 +246,28 @@ const DeviceManagement = () => {
     });
   };
 
+  // Function to handle device activation
+  const handleActivateDevice = async (deviceId) => {
+    try {
+      setLoading(true);
+      message.loading("Activating device...", 2);
+      
+      const activationResult = await DeviceServices.activateDevice(deviceId);
+      
+      if (activationResult.success) {
+        message.success("Device activated successfully");
+        fetchData(); // Refresh the device list
+      } else {
+        message.error(activationResult.message || "Failed to activate device");
+      }
+    } catch (error) {
+      console.error('Error activating device:', error);
+      handleAuthError(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Columns for the devices table
   const deviceColumns = [
     {
@@ -240,6 +312,13 @@ const DeviceManagement = () => {
             disabled={!record || !record.id}
           >
             Delete
+          </Button>
+          <Button
+            icon={<SyncOutlined />}
+            onClick={() => handleActivateDevice(record?.id)}
+            disabled={!record || !record.id}
+          >
+            Activate
           </Button>
         </Space>
       )
@@ -338,6 +417,59 @@ const DeviceManagement = () => {
           >
             <Input.TextArea placeholder="Enter device description" />
           </Form.Item>
+
+          <Divider orientation="left">Feed Information</Divider>
+          <Form.List name="feeds" initialValue={[{}]}>
+            {(fields, { add, remove }) => (
+              <>
+                {fields.map(({ key, name, ...restField }) => (
+                  <div key={key} style={{ marginBottom: 20 }}>
+                    <Row gutter={16}>
+                      <Col span={11}>
+                        <Form.Item
+                          {...restField}
+                          name={[name, "name"]}
+                          label="Feed Name"
+                          rules={[{ required: true, message: "Please enter feed name" }]}
+                        >
+                          <Input placeholder="Enter feed name" />
+                        </Form.Item>
+                      </Col>
+                      <Col span={11}>
+                        <Form.Item
+                          {...restField}
+                          name={[name, "feedKey"]}
+                          label="Feed Key"
+                          rules={[{ required: true, message: "Please enter feed key" }]}
+                        >
+                          <Input placeholder="Enter feed key" />
+                        </Form.Item>
+                      </Col>
+                      <Col span={2} style={{ display: 'flex', alignItems: 'center', marginTop: 30 }}>
+                        {fields.length > 1 && (
+                          <DeleteOutlined 
+                            style={{ color: '#ff4d4f' }}
+                            onClick={() => remove(name)}
+                          />
+                        )}
+                      </Col>
+                    </Row>
+                    {fields.length > 1 && <Divider dashed />}
+                  </div>
+                ))}
+                <Form.Item>
+                  <Button
+                    type="dashed"
+                    onClick={() => add()}
+                    block
+                    icon={<PlusOutlined />}
+                  >
+                    Add Feed
+                  </Button>
+                </Form.Item>
+              </>
+            )}
+          </Form.List>
         </Form>
       </Modal>
     </div>

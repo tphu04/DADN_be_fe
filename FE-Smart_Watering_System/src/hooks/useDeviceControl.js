@@ -199,7 +199,24 @@ export const useDeviceControl = () => {
     };
 
     const handleToggleLight = async (checked, deviceId) => {
+        // Special case for when only deviceId is passed (toggle current state)
+        if (deviceId === undefined && typeof checked === 'number') {
+            deviceId = checked;
+            const currentState = displayStates[deviceId]?.light ?? false;
+            checked = !currentState;
+        }
+
         console.log(`handleToggleLight: deviceId=${deviceId}, checked=${checked}, type=${typeof checked}`);
+
+        // Validate deviceId
+        if (!deviceId || isNaN(parseInt(deviceId))) {
+            console.error('Invalid deviceId:', deviceId);
+            toast.error('ID thiết bị không hợp lệ');
+            return;
+        }
+
+        // Ensure deviceId is a number
+        deviceId = parseInt(deviceId);
 
         // Cache giá trị hiện tại trước khi thay đổi
         const currentState = {

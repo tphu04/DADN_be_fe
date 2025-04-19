@@ -7,8 +7,20 @@ const LightControls = ({
     isLightOn,
     isInAutoMode,
     onToggleLight,
-    isDeviceOnline
+    isDeviceOnline,
+    disabled = false
 }) => {
+    // Ensure we have a valid device ID
+    const deviceId = device?.id ? parseInt(device.id) : null;
+
+    const handleToggle = (checked) => {
+        if (!deviceId) {
+            console.error('Invalid device ID in LightControls:', device);
+            return;
+        }
+        onToggleLight(checked, deviceId);
+    };
+
     return (
         <div className="p-3 bg-white rounded-lg shadow-sm border border-gray-100">
             <div className="flex justify-between items-center">
@@ -16,9 +28,9 @@ const LightControls = ({
                 <div className={`p-1 rounded-full transition-all duration-300 ease-in-out ${isLightOn ? 'bg-yellow-100 shadow-md' : ''}`}>
                     <Switch
                         checked={isLightOn}
-                        onChange={(checked) => onToggleLight(checked, device.id)}
+                        onChange={handleToggle}
                         className={`transition-colors duration-300 ease-in-out ${isLightOn ? '!bg-yellow-500 !bg-opacity-100' : ''}`}
-                        disabled={!isDeviceOnline(device) || isInAutoMode || isDeviceLoading}
+                        disabled={!isDeviceOnline(device) || isInAutoMode || isDeviceLoading || disabled}
                     />
                 </div>
             </div>

@@ -26,7 +26,19 @@ const AuthProvider = ({ children }) => {
         try {
           const response = await getUserProfile();
           if (response.success) {
-            setUser(response.data);
+            // Ensure isAccepted is properly set as a boolean
+            const userData = { ...response.data };
+            
+            if (userData.isAccepted === 1 || userData.isAccepted === "1" || userData.isAccepted === true) {
+              userData.isAccepted = true;
+            } else if (userData.isAccepted === 0 || userData.isAccepted === "0" || userData.isAccepted === false) {
+              userData.isAccepted = false;
+            }
+            
+            // Update user in state and localStorage
+            setUser(userData);
+            localStorage.setItem("user", JSON.stringify(userData));
+            console.log("User profile updated with isAccepted:", userData.isAccepted);
           }
         } catch (error) {
           console.error("Failed to get user profile:", error);

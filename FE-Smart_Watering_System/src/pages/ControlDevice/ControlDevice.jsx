@@ -12,6 +12,7 @@ import { useDeviceControl } from "../../hooks/useDeviceControl";
 import { useSchedules } from "../../hooks/useSchedules";
 import { useDeviceConfig } from "../../hooks/useDeviceConfig";
 import { useAuth } from "../../context/AuthContext";
+import { toast } from "react-toastify";
 
 const ControlDevice = () => {
   const navigate = useNavigate();
@@ -115,9 +116,13 @@ const ControlDevice = () => {
         isDeviceLoading={isDeviceLoading}
         isLightOn={lightValue}
         isInAutoMode={isInAutoMode}
-        onToggleLight={(deviceId) => {
+        onToggleLight={(checked, deviceId) => {
           if (!checkPermission()) return;
-          handleToggleLight(deviceId);
+          if (deviceId) {
+            handleToggleLight(checked, deviceId);
+          } else {
+            toast.error('ID thiết bị không hợp lệ');
+          }
         }}
         isDeviceOnline={isDeviceOnline}
         disabled={!hasPermission}
@@ -257,9 +262,10 @@ const ControlDevice = () => {
             if (!checkPermission()) return;
             handleAutoModeChange(enabled);
           }}
-          onScheduleChange={(scheduleType, data) => {
+          onScheduleChange={(scheduleType, field, value) => {
             if (!checkPermission()) return;
-            handleScheduleChange(scheduleType, data);
+            console.log(`Schedule change in ControlDevice: ${scheduleType}, ${field}, ${value}`);
+            handleScheduleChange(scheduleType, field, value);
           }}
           onSave={() => {
             if (!checkPermission()) return;

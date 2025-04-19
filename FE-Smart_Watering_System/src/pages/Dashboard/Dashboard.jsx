@@ -416,7 +416,7 @@ const Dashboard = () => {
             <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
               <div>
                 Soil Moisture
-                {thresholdAlerts.soilMoisture &&
+                {(thresholdAlerts.soilMoisture?.high || thresholdAlerts.soilMoisture?.low) &&
                   <span className="ml-2 text-red-700 font-bold">⚠️ Quá ngưỡng!</span>
                 }
               </div>
@@ -448,7 +448,7 @@ const Dashboard = () => {
             <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
               <div>
                 Temperature
-                {thresholdAlerts.temperature &&
+                {(thresholdAlerts.temperature?.high || thresholdAlerts.temperature?.low) &&
                   <span className="ml-2 text-red-700 font-bold">⚠️ Quá ngưỡng!</span>
                 }
               </div>
@@ -480,7 +480,7 @@ const Dashboard = () => {
             <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
               <div>
                 Air Humidity
-                {thresholdAlerts.airHumidity &&
+                {(thresholdAlerts.airHumidity?.high || thresholdAlerts.airHumidity?.low) &&
                   <span className="ml-2 text-red-700 font-bold">⚠️ Quá ngưỡng!</span>
                 }
               </div>
@@ -512,6 +512,9 @@ const Dashboard = () => {
             <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
               <div>
                 Pump Water
+                {(sensorData.pumpWater?.status === 'On') &&
+                  <span className="ml-2 text-yellow-300 font-bold">⚠️ Đang hoạt động</span>
+                }
               </div>
               <button className="w-[20px] h-[20px]">
                 <img src={Icon3Dots} alt="icon 3 dots" />
@@ -546,6 +549,9 @@ const Dashboard = () => {
             <div className="font-poppins text-[14px] font-semibold flex justify-between items-center">
               <div>
                 Light
+                {(sensorData.light?.status === 'On') &&
+                  <span className="ml-2 text-yellow-300 font-bold">⚠️ Đang hoạt động</span>
+                }
               </div>
               <button className="w-[20px] h-[20px]">
                 <img src={Icon3Dots} alt="icon 3 dots" />
@@ -557,6 +563,7 @@ const Dashboard = () => {
             <div className="text-white font-roboto text-[14px] font-normal leading-[20px]">
               Status: {sensorData.light?.status || 'Off'}
             </div>
+          
 
             <div className="absolute right-2 bottom-6">
               <img src={IconChart} alt="icon chart" />
@@ -571,7 +578,7 @@ const Dashboard = () => {
       </div>
 
       {/* Debug section - only show when showDebug is true */}
-      {/* {showDebug && (
+      {showDebug && (
         <div className="mt-8 p-4 bg-gray-100 rounded-lg">
           <h3 className="text-lg font-bold mb-2">Debug Info</h3>
           <div className="mb-2">
@@ -608,7 +615,7 @@ const Dashboard = () => {
               <pre className="bg-white p-2 rounded text-xs overflow-auto max-h-40 border-2 border-blue-300">
                 {JSON.stringify({
                   ...thresholdAlerts,
-                  _explanation: 'TRUE = Đang vượt ngưỡng, FALSE = OK'
+                  _explanation: 'HIGH/LOW: TRUE = Đang vượt ngưỡng, FALSE = OK'
                 }, null, 2)}
               </pre>
             </div>
@@ -644,7 +651,7 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-      )} */}
+      )}
     </div>
   );
 };

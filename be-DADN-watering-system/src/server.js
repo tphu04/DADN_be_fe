@@ -15,7 +15,7 @@ const app = express();
 
 // ✅ Danh sách origin được phép (bao gồm cả FE local và FE Vercel)
 const allowedOrigins = [
-    'https://smart-watering-system.vercel.app',
+    // 'https://smart-watering-system.vercel.app',
     'http://localhost:5173' 
 ];
 
@@ -36,7 +36,7 @@ app.use(cors(corsOptions));
 
 // ✅ Log tất cả requests để debug (có origin luôn)
 app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
+    // console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
     next();
 });
 

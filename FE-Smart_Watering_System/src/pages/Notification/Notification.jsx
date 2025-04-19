@@ -34,20 +34,22 @@ const Notification = () => {
       );
 
       if (response.data && response.data.success) {
-        let filteredData = response.data.data;
+        let filteredData = response.data.data || [];
         
         console.log("Data before filtering:", filteredData);
         
         // Áp dụng bộ lọc ở phía client nếu có
         if (filters && filters.type && filters.type.length > 0) {
           filteredData = filteredData.filter(notification => {
-            // Log each notification's type for debugging
-            console.log("Notification type:", notification.type, "Filters:", filters.type);
-            
-            if (!notification.type) {
-              // Xử lý trường hợp đặc biệt cho "Khác"
-              return filters.type.includes('OTHER');
+            // Xử lý trường hợp đặc biệt cho "Khác"
+            if (filters.type.includes('OTHER')) {
+              if (!notification.type || notification.type.trim() === '') {
+                return true;
+              }
             }
+            
+            // Xử lý trường hợp type là null hoặc undefined
+            if (!notification.type) return false;
             
             // Trim whitespace and convert to uppercase for case-insensitive comparison
             const normalizedType = notification.type.trim().toUpperCase();
@@ -59,11 +61,13 @@ const Notification = () => {
         
         setNotifications(filteredData);
       } else {
+        setNotifications([]);
         throw new Error(response.data?.message || "Không thể tải thông báo");
       }
     } catch (error) {
       console.error("Error fetching notifications:", error);
       toast.error("Không thể tải thông báo: " + (error.response?.data?.message || error.message));
+      setNotifications([]);
     } finally {
       setLoading(false);
     }
@@ -120,7 +124,7 @@ const Notification = () => {
       width: 150,
       render: (type) => (
         <Tag icon={getTypeIcon(type)} color={getTypeColor(type)}>
-          {type || 'UNKNOWN'}
+          {type || 'Khác'}
         </Tag>
       ),
       filters: [
@@ -129,12 +133,13 @@ const Notification = () => {
         { text: 'PUMP', value: 'PUMP' },
         { text: 'USER_ACTION', value: 'USER_ACTION' },
         { text: 'AUTOMATION', value: 'AUTOMATION' },
+        { text: 'Khác', value: 'OTHER' },
       ],
       filteredValue: filters?.type || null,
       onFilter: (value, record) => {
         // Trường hợp đặc biệt cho 'Khác'
         if (value === 'OTHER') {
-          return !record.type;
+          return !record.type || record.type.trim() === '';
         }
         
         // Xử lý trường hợp type là null hoặc undefined
@@ -300,13 +305,34 @@ const Notification = () => {
             pagination={false} // Tắt phân trang
             loading={loading}
             onChange={handleTableChange}
-            scroll={{ x: 800, y: 600 }} // Thêm scroll chiều dọc
+            scroll={notifications && notifications.length > 0 ? { x: 800, y: 600 } : { x: 800 }} // Chỉ scroll theo chiều dọc khi có dữ liệu
             locale={{ 
               filterConfirm: 'Lọc',
               filterReset: 'Đặt lại',
-              emptyText: filters && Object.keys(filters).some(key => filters[key]?.length)
-                ? "Không tìm thấy thông báo phù hợp với bộ lọc"
-                : "Không có thông báo nào"
+              emptyText: (
+                <div className="py-16 flex flex-col items-center">
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={
+                      filters && Object.values(filters).some(val => val && val.length > 0)
+                        ? "Không có thông báo nào phù hợp với bộ lọc. Hãy thử bộ lọc khác."
+                        : "Không có thông báo nào."
+                    }
+                  />
+                  {filters && Object.values(filters).some(val => val && val.length > 0) && (
+                    <Button 
+                      type="primary" 
+                      className="mt-4"
+                      onClick={() => {
+                        setFilters(null);
+                        fetchNotifications(null);
+                      }}
+                    >
+                      Xóa bộ lọc
+                    </Button>
+                  )}
+                </div>
+              )
             }}
           />
         </div>

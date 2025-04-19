@@ -11,16 +11,22 @@ const DeviceConfigModal = ({
     onAutoModeChange,
     onScheduleChange,
     onSave,
-    saving
+    saving,
+    disabled
 }) => {
     const isWateringDevice = device?.deviceType === 'pump_water';
     const isLightDevice = device?.deviceType === 'light';
-    const scheduleType = isWateringDevice ? 'wateringSchedule' : 'lightSchedule';
+    
+    // Helper function to handle schedule field changes
+    const handleScheduleFieldChange = (scheduleType, field, value) => {
+        console.log(`Changing ${scheduleType}.${field} to:`, value);
+        onScheduleChange(scheduleType, field, value);
+    };
 
     return (
         <Card
             title={`Cấu hình lịch trình: ${device?.deviceCode} (${isWateringDevice ? 'Máy bơm' : 'Đèn'})`}
-            extra={<Button type="link" onClick={onClose}>Đóng</Button>}
+            extra={<Button type="link" onClick={onClose} disabled={saving}>Đóng</Button>}
             className="mb-6 shadow-md"
         >
             <div className="flex justify-between items-center mb-4">
@@ -34,6 +40,7 @@ const DeviceConfigModal = ({
                         checked={config.autoMode}
                         onChange={onAutoModeChange}
                         className={config.autoMode ? "bg-green-500" : ""}
+                        disabled={disabled || saving}
                     />
                     <span className="ml-2">Tự động</span>
                 </div>
@@ -57,9 +64,9 @@ const DeviceConfigModal = ({
                         </div>
                         <Switch
                             checked={config.wateringSchedule.enabled}
-                            onChange={(val) => onScheduleChange("wateringSchedule", "enabled", val)}
+                            onChange={(val) => handleScheduleFieldChange("wateringSchedule", "enabled", val)}
                             className={config.wateringSchedule.enabled ? "bg-blue-500" : ""}
-                            disabled={!config.autoMode}
+                            disabled={!config.autoMode || disabled || saving}
                         />
                     </div>
 
@@ -69,12 +76,12 @@ const DeviceConfigModal = ({
                         </div>
                     )}
 
-                    <Form layout="vertical" disabled={!config.autoMode || !config.wateringSchedule.enabled}>
+                    <Form layout="vertical" disabled={!config.autoMode || !config.wateringSchedule.enabled || disabled || saving}>
                         <Form.Item label="Thời gian bắt đầu">
                             <Input
                                 type="time"
                                 value={config.wateringSchedule.startTime}
-                                onChange={(e) => onScheduleChange("wateringSchedule", "startTime", e.target.value)}
+                                onChange={(e) => handleScheduleFieldChange("wateringSchedule", "startTime", e.target.value)}
                             />
                         </Form.Item>
 
@@ -84,7 +91,7 @@ const DeviceConfigModal = ({
                                 min={1}
                                 max={60}
                                 value={config.wateringSchedule.duration}
-                                onChange={(e) => onScheduleChange("wateringSchedule", "duration", Number(e.target.value))}
+                                onChange={(e) => handleScheduleFieldChange("wateringSchedule", "duration", Number(e.target.value))}
                             />
                         </Form.Item>
 
@@ -93,24 +100,24 @@ const DeviceConfigModal = ({
                                 <button
                                     type="button"
                                     className={`flex-1 py-2 px-3 rounded-lg border ${config.wateringSchedule.speed === 0 ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}
-                                    onClick={() => onScheduleChange("wateringSchedule", "speed", 0)}
-                                    disabled={!config.autoMode || !config.wateringSchedule.enabled}
+                                    onClick={() => handleScheduleFieldChange("wateringSchedule", "speed", 0)}
+                                    disabled={!config.autoMode || !config.wateringSchedule.enabled || disabled || saving}
                                 >
                                     Tắt (0%)
                                 </button>
                                 <button
                                     type="button"
                                     className={`flex-1 py-2 px-3 rounded-lg border ${config.wateringSchedule.speed === 50 ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}
-                                    onClick={() => onScheduleChange("wateringSchedule", "speed", 50)}
-                                    disabled={!config.autoMode || !config.wateringSchedule.enabled}
+                                    onClick={() => handleScheduleFieldChange("wateringSchedule", "speed", 50)}
+                                    disabled={!config.autoMode || !config.wateringSchedule.enabled || disabled || saving}
                                 >
                                     Vừa (50%)
                                 </button>
                                 <button
                                     type="button"
                                     className={`flex-1 py-2 px-3 rounded-lg border ${config.wateringSchedule.speed === 100 ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}
-                                    onClick={() => onScheduleChange("wateringSchedule", "speed", 100)}
-                                    disabled={!config.autoMode || !config.wateringSchedule.enabled}
+                                    onClick={() => handleScheduleFieldChange("wateringSchedule", "speed", 100)}
+                                    disabled={!config.autoMode || !config.wateringSchedule.enabled || disabled || saving}
                                 >
                                     Cao (100%)
                                 </button>
@@ -123,7 +130,7 @@ const DeviceConfigModal = ({
                                 style={{ width: '100%' }}
                                 placeholder="Chọn các ngày"
                                 value={config.wateringSchedule.days}
-                                onChange={(val) => onScheduleChange("wateringSchedule", "days", val)}
+                                onChange={(val) => handleScheduleFieldChange("wateringSchedule", "days", val)}
                             >
                                 <Option value="monday">Thứ 2</Option>
                                 <Option value="tuesday">Thứ 3</Option>
@@ -148,9 +155,9 @@ const DeviceConfigModal = ({
                         </div>
                         <Switch
                             checked={config.lightSchedule.enabled}
-                            onChange={(val) => onScheduleChange("lightSchedule", "enabled", val)}
+                            onChange={(val) => handleScheduleFieldChange("lightSchedule", "enabled", val)}
                             className={config.lightSchedule.enabled ? "bg-yellow-500" : ""}
-                            disabled={!config.autoMode}
+                            disabled={!config.autoMode || disabled || saving}
                         />
                     </div>
 
@@ -160,12 +167,12 @@ const DeviceConfigModal = ({
                         </div>
                     )}
 
-                    <Form layout="vertical" disabled={!config.autoMode || !config.lightSchedule.enabled}>
+                    <Form layout="vertical" disabled={!config.autoMode || !config.lightSchedule.enabled || disabled || saving}>
                         <Form.Item label="Thời gian bật đèn">
                             <Input
                                 type="time"
                                 value={config.lightSchedule.onTime}
-                                onChange={(e) => onScheduleChange("lightSchedule", "onTime", e.target.value)}
+                                onChange={(e) => handleScheduleFieldChange("lightSchedule", "onTime", e.target.value)}
                             />
                         </Form.Item>
 
@@ -173,7 +180,7 @@ const DeviceConfigModal = ({
                             <Input
                                 type="time"
                                 value={config.lightSchedule.offTime}
-                                onChange={(e) => onScheduleChange("lightSchedule", "offTime", e.target.value)}
+                                onChange={(e) => handleScheduleFieldChange("lightSchedule", "offTime", e.target.value)}
                             />
                         </Form.Item>
 
@@ -183,7 +190,7 @@ const DeviceConfigModal = ({
                                 style={{ width: '100%' }}
                                 placeholder="Chọn các ngày"
                                 value={config.lightSchedule.days}
-                                onChange={(val) => onScheduleChange("lightSchedule", "days", val)}
+                                onChange={(val) => handleScheduleFieldChange("lightSchedule", "days", val)}
                             >
                                 <Option value="monday">Thứ 2</Option>
                                 <Option value="tuesday">Thứ 3</Option>
@@ -203,6 +210,7 @@ const DeviceConfigModal = ({
                     type="primary"
                     onClick={onSave}
                     loading={saving}
+                    disabled={disabled || (!config.wateringSchedule?.enabled && !config.lightSchedule?.enabled && config.autoMode)}
                 >
                     {saving ? "Đang lưu..." : "Lưu lịch trình"}
                 </Button>
