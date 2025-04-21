@@ -38,7 +38,7 @@ async function findByUsername(username) {
         const columnsResult = await prisma.$queryRaw`
             SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
             WHERE TABLE_NAME = 'User' 
-            AND COLUMN_NAME IN ('isAccepted', 'mqttUsername', 'mqttApiKey')
+            AND COLUMN_NAME IN ('isAccepted')
         `;
         const existingColumns = columnsResult.map(row => row.COLUMN_NAME);
         
@@ -52,7 +52,7 @@ async function findByUsername(username) {
         if (user) {
             // If user exists, get additional fields if columns exist
             if (existingColumns.includes('isAccepted')) {
-                const userData = await prisma.$queryRaw`SELECT isAccepted, mqttUsername, mqttApiKey FROM User WHERE id = ${user.id}`;
+                const userData = await prisma.$queryRaw`SELECT isAccepted FROM User WHERE id = ${user.id}`;
                 if (userData && userData.length > 0) {
                     user.isAccepted = userData[0].isAccepted || false;
                 }

@@ -30,6 +30,13 @@ const ConfigDevice = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  // Add debug logging
+  useEffect(() => {
+    console.log('ConfigDevice: User data:', user);
+    console.log('ConfigDevice: User approval status (isAccepted):', user?.isAccepted);
+    console.log('ConfigDevice: hasPermission value:', user && user.isAccepted === true);
+  }, [user]);
+
   // Kiểm tra tài khoản đã được chấp nhận chưa
   const hasPermission = user && user.isAccepted === true;
 
@@ -133,7 +140,7 @@ const ConfigDevice = () => {
     };
 
     fetchCurrentConfig();
-  }, []);
+  }, [hasPermission]);
 
   const handleRangeChange = (key, value) => {
     setConfigs((prev) => ({ ...prev, [key]: value }));

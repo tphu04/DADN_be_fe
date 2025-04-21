@@ -17,10 +17,26 @@ export async function login(username, password) {
     });
 
     if (res.data.success) {
+      // Extra debug logging for user data
+      console.log('Raw user data from login API:', res.data.data.user);
+      
+      // Fix isAccepted property to be a proper boolean
+      const userData = res.data.data.user;
+      if (userData) {
+        // Ensure isAccepted is a proper boolean
+        if (userData.isAccepted === 1 || userData.isAccepted === "1" || userData.isAccepted === true) {
+          userData.isAccepted = true;
+        } else if (userData.isAccepted === 0 || userData.isAccepted === "0" || userData.isAccepted === false || userData.isAccepted === null || userData.isAccepted === undefined) {
+          userData.isAccepted = false;
+        }
+        
+        console.log('User data after fixing isAccepted:', userData);
+      }
+      
       // Lưu token vào localStorage nếu đăng nhập thành công
       localStorage.setItem("token", res.data.data.token);
       // Lưu thông tin người dùng
-      localStorage.setItem("user", JSON.stringify(res.data.data.user));
+      localStorage.setItem("user", JSON.stringify(userData || res.data.data.user));
       console.log('Login successful');
     }
 
@@ -105,6 +121,33 @@ export async function register(username, password, email, phone, fullname, addre
 export async function getUserProfile() {
   try {
     const res = await axios.get("/users/profile");
+    
+    // Debug raw response
+    console.log('Raw user profile data:', res.data);
+    
+    if (res.data.success && res.data.data) {
+      // Fix isAccepted property to be a proper boolean
+      const userData = res.data.data;
+      
+      // Ensure isAccepted is a proper boolean
+      if (userData.isAccepted === 1 || userData.isAccepted === "1" || userData.isAccepted === true) {
+        userData.isAccepted = true;
+      } else if (userData.isAccepted === 0 || userData.isAccepted === "0" || userData.isAccepted === false || userData.isAccepted === null || userData.isAccepted === undefined) {
+        userData.isAccepted = false;
+      }
+      
+      console.log('User profile after fixing isAccepted:', userData);
+      
+      // Update localStorage with corrected user data
+      localStorage.setItem("user", JSON.stringify(userData));
+      
+      // Return modified data
+      return {
+        ...res.data,
+        data: userData
+      };
+    }
+    
     return res.data;
   } catch (error) {
     toast.error(error?.response?.data?.message || "Không thể lấy thông tin người dùng");

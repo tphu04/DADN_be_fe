@@ -29,16 +29,21 @@ const AuthProvider = ({ children }) => {
             // Ensure isAccepted is properly set as a boolean
             const userData = { ...response.data };
             
+            // Add explicit debug logging
+            console.log('AuthContext: Raw user data from profile API:', userData);
+            console.log('AuthContext: isAccepted before conversion:', userData.isAccepted, typeof userData.isAccepted);
+            
             if (userData.isAccepted === 1 || userData.isAccepted === "1" || userData.isAccepted === true) {
               userData.isAccepted = true;
-            } else if (userData.isAccepted === 0 || userData.isAccepted === "0" || userData.isAccepted === false) {
+            } else if (userData.isAccepted === 0 || userData.isAccepted === "0" || userData.isAccepted === false || userData.isAccepted === null || userData.isAccepted === undefined) {
               userData.isAccepted = false;
             }
+            
+            console.log("AuthContext: User profile updated with isAccepted:", userData.isAccepted, typeof userData.isAccepted);
             
             // Update user in state and localStorage
             setUser(userData);
             localStorage.setItem("user", JSON.stringify(userData));
-            console.log("User profile updated with isAccepted:", userData.isAccepted);
           }
         } catch (error) {
           console.error("Failed to get user profile:", error);

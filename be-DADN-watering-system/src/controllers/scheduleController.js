@@ -607,6 +607,7 @@ exports.executeSchedule = async (scheduleId) => {
     
     // Kiểm tra thiết bị có online không
     if (!await isDeviceOnline(schedule.device)) {
+      console.log(`Thiết bị ${schedule.device.deviceCode} đang offline, ghi log nhưng vẫn sẽ thử gửi lệnh`);
       await prisma.notification.create({
         data: {
           message: `Không thể thực thi lịch trình tưới: Thiết bị ${schedule.device.deviceCode} đang offline`,
@@ -615,31 +616,37 @@ exports.executeSchedule = async (scheduleId) => {
           deviceId: schedule.deviceId
         }
       });
-      return {
-        success: false,
-        message: 'Thiết bị đang offline'
-      };
+      console.log(`Đã tạo thông báo cảnh báo về thiết bị offline`);
+      // Continue trying to send command regardless of device online status
     }
     
     console.log(`Đang thực thi lịch trình ${scheduleId} cho thiết bị ${schedule.device.deviceCode}`);
     
     // Xử lý theo loại lịch trình
     if (schedule.scheduleType === 'watering') {
+      // Log trước khi gửi lệnh MQTT
+      console.log(`DEBUG: Chuẩn bị gửi lệnh bật máy bơm qua MQTT với tốc độ ${schedule.speed || 50}%`);
+      
       // Gửi lệnh bật máy bơm
       const result = await mqttService.publishToDevice(schedule.deviceId, 'pump', {
         status: 'On',
         speed: schedule.speed || 50
       });
       
+      console.log(`DEBUG: Kết quả gửi MQTT: ${result ? 'Thành công' : 'Thất bại'}`);
+      
       if (result) {
         console.log(`Đã bật máy bơm với tốc độ ${schedule.speed || 50}% cho thiết bị ${schedule.device.deviceCode}`);
         
         // Đặt hẹn giờ để tắt máy bơm sau khoảng thời gian duration
         setTimeout(async () => {
+          console.log(`DEBUG: Chuẩn bị gửi lệnh tắt máy bơm sau ${schedule.duration} phút`);
           const turnOffResult = await mqttService.publishToDevice(schedule.deviceId, 'pump', {
             status: 'Off',
             speed: 0
           });
+          
+          console.log(`DEBUG: Kết quả gửi lệnh tắt MQTT: ${turnOffResult ? 'Thành công' : 'Thất bại'}`);
           
           if (turnOffResult) {
             console.log(`Đã tắt máy bơm cho thiết bị ${schedule.device.deviceCode} sau ${schedule.duration} phút`);
@@ -652,10 +659,15 @@ exports.executeSchedule = async (scheduleId) => {
         return;
       }
     } else if (schedule.scheduleType === 'lighting') {
+      // Log trước khi gửi lệnh MQTT
+      console.log(`DEBUG: Chuẩn bị gửi lệnh bật đèn qua MQTT`);
+      
       // Gửi lệnh bật đèn
       const result = await mqttService.publishToDevice(schedule.deviceId, 'light', {
         status: 'On'
       });
+      
+      console.log(`DEBUG: Kết quả gửi MQTT: ${result ? 'Thành công' : 'Thất bại'}`);
       
       if (result) {
         console.log(`Đã bật đèn cho thiết bị ${schedule.device.deviceCode}`);

@@ -983,9 +983,19 @@ class MQTTService {
             }
 
             // Kiểm tra MQTT chính đã kết nối chưa
-                    if (!this.client || !this.client.connected) {
-                        console.error(`❌ MQTT client chưa kết nối, không thể gửi dữ liệu`);
-                return false;
+            if (!this.client || !this.client.connected) {
+                console.error(`❌ MQTT client chưa kết nối, không thể gửi dữ liệu`);
+                
+                // Thử kết nối lại
+                console.log(`⚠️ Đang thử kết nối lại MQTT client...`);
+                // Chờ 3 giây để MQTT client thử kết nối lại
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                if (!this.client || !this.client.connected) {
+                    console.error(`❌ Không thể kết nối lại MQTT client, bỏ qua gửi dữ liệu`);
+                    return false;
+                }
+                console.log(`✅ Đã kết nối lại MQTT client thành công, tiếp tục gửi dữ liệu`);
             }
             
             // Với MQTT thì cần đảm bảo value luôn là string
@@ -998,21 +1008,39 @@ class MQTTService {
                     const topic = `${this.username}/feeds/${feedKey}`;
                     console.log(`📤 Gửi dữ liệu đến topic ${topic}: ${valueStr}`);
                     
-                    this.client.publish(topic, valueStr, { qos: 1 }, (err) => {
+                    // Thêm timeout để đảm bảo không bị treo
+                    const timeoutId = setTimeout(() => {
+                        console.error(`⏱️ Hết thời gian chờ phản hồi từ MQTT sau 10 giây`);
+                        resolve(false);
+                    }, 10000);
+                    
+                    // Publish với QoS 1 để đảm bảo message được gửi ít nhất một lần
+                    this.client.publish(topic, valueStr, { qos: 1, retain: false }, (err) => {
+                        clearTimeout(timeoutId);
+                        
                         if (err) {
                             console.error(`❌ Lỗi gửi dữ liệu đến ${topic}:`, err);
                             resolve(false);
                         } else {
                             console.log(`✅ Đã gửi dữ liệu thành công đến ${topic}: ${valueStr}`);
                             
-                                resolve(true);
-                            }
-                        });
-                } catch (error) {
-                    console.error(`❌ Exception khi gửi MQTT:`, error);
-                            resolve(false);
+                            // Lưu vào console.log chi tiết hơn để debug
+                            console.log(`📊 Chi tiết gửi MQTT:`, {
+                                device: deviceId,
+                                deviceCode: device.deviceCode,
+                                feed: feedKey,
+                                value: valueStr,
+                                time: new Date().toISOString()
+                            });
+                            
+                            resolve(true);
                         }
                     });
+                } catch (error) {
+                    console.error(`❌ Exception khi gửi MQTT:`, error);
+                    resolve(false);
+                }
+            });
             
         } catch (error) {
             console.error(`❌ Lỗi gửi dữ liệu MQTT cho thiết bị ${deviceId}:`, error);
@@ -1083,7 +1111,7 @@ class MQTTService {
             let normalizedDeviceType = deviceType;
             
             // Chuyển đổi các loại thiết bị tương đương
-            if (deviceType === 'pumpWater' || deviceType === 'pump_water') {
+            if (deviceType === 'pumpWater' || deviceType === 'pump_water' || deviceType === 'pump') {
                 normalizedDeviceType = 'pump';
             }
             
@@ -1138,7 +1166,9 @@ class MQTTService {
             let targetFeed = null;
             
             if (normalizedDeviceType === 'pump') {
-                // Tìm feed điều khiển máy bơm
+                // Tìm feed điều khiển máy bơm - log tất cả feed để debug
+                console.log('DEBUG - Đang tìm feed máy bơm trong các feed:', device.feed.map(f => `${f.name}(${f.feedKey})`).join(', '));
+                
                 targetFeed = device.feed.find(feed => 
                     feed.feedKey.toLowerCase().includes('pump') || 
                     feed.feedKey.toLowerCase().includes('bom') ||
@@ -1146,8 +1176,16 @@ class MQTTService {
                     feed.name?.toLowerCase().includes('bom')
                 );
                 console.log(`🔍 MQTT - Tìm feed máy bơm: ${targetFeed ? `Đã tìm thấy (${targetFeed.feedKey})` : 'Không tìm thấy'}`);
+                
+                // Nếu không tìm thấy feed máy bơm theo tên, hãy tìm bằng deviceType
+                if (!targetFeed) {
+                    targetFeed = device.feed.find(feed => feed.deviceType === 'pump_water' || feed.deviceType === 'pump');
+                    console.log(`🔍 MQTT - Tìm feed máy bơm theo deviceType: ${targetFeed ? `Đã tìm thấy (${targetFeed.feedKey})` : 'Không tìm thấy'}`);
+                }
             } else if (normalizedDeviceType === 'light') {
-                // Tìm feed điều khiển đèn
+                // Tìm feed điều khiển đèn - log tất cả feed để debug
+                console.log('DEBUG - Đang tìm feed đèn trong các feed:', device.feed.map(f => `${f.name}(${f.feedKey})`).join(', '));
+                
                 targetFeed = device.feed.find(feed => 
                     feed.feedKey.toLowerCase().includes('light') || 
                     feed.feedKey.toLowerCase().includes('den') || 
@@ -1157,11 +1195,17 @@ class MQTTService {
                     feed.name?.toLowerCase().includes('led')
                 );
                 console.log(`🔍 MQTT - Tìm feed đèn: ${targetFeed ? `Đã tìm thấy (${targetFeed.feedKey})` : 'Không tìm thấy'}`);
+                
+                // Nếu không tìm thấy feed đèn theo tên, hãy tìm bằng deviceType
+                if (!targetFeed) {
+                    targetFeed = device.feed.find(feed => feed.deviceType === 'light');
+                    console.log(`🔍 MQTT - Tìm feed đèn theo deviceType: ${targetFeed ? `Đã tìm thấy (${targetFeed.feedKey})` : 'Không tìm thấy'}`);
+                }
             }
 
             // Nếu không tìm thấy feed tương ứng, sử dụng feed đầu tiên
-                if (!targetFeed && device.feed.length > 0) {
-                    targetFeed = device.feed[0];
+            if (!targetFeed && device.feed.length > 0) {
+                targetFeed = device.feed[0];
                 console.log(`⚠️ MQTT - Không tìm thấy feed phù hợp cho ${normalizedDeviceType}, sử dụng feed đầu tiên: ${targetFeed.feedKey}`);
             }
 
@@ -1178,14 +1222,14 @@ class MQTTService {
                 // Tạo giá trị cho máy bơm
                 if (command.status === 'On') {
                     // Sử dụng giá trị speed từ lệnh, giữ nguyên giá trị
-                    const speed = command.speed || command.value ;
+                    const speed = command.speed || command.value || 50;
                     value = `${speed}`;
                     console.log(`📤 Gửi giá trị "${value}" cho máy bơm - CHÍNH XÁC THEO LỆNH`);
                 } else {
-                    // Định dạng Off:0 khi tắt
+                    // Định dạng 0 khi tắt
                     value = '0';
+                    console.log(`📤 Gửi giá trị "${value}" cho máy bơm khi tắt`);
                 }
-                console.log(`📤 Gửi giá trị "${value}" cho máy bơm`);
             } else if (normalizedDeviceType === 'light') {
                 // Gửi giá trị 1/0 cho đèn thay vì On/Off
                 value = command.status === 'On' ? '1' : '0';
@@ -1196,6 +1240,7 @@ class MQTTService {
             }
             
             // Gửi lệnh qua MQTT
+            console.log(`DEBUG - Gửi lệnh đến MQTT với feedKey=${feedKey}, value=${value}`);
             const result = await this.publishToMQTT(deviceId, feedKey, value);
             
             if (result) {
@@ -1209,11 +1254,11 @@ class MQTTService {
                     await prisma.pumpwaterdata.create({
                         data: {
                             status: command.status,
-                            pumpSpeed: command.status === 'On' ? (command.speed || command.value ) : 0,
+                            pumpSpeed: command.status === 'On' ? (command.speed || command.value || 50) : 0,
                             deviceId: parseInt(deviceId)
                         }
                     });
-                        console.log(`✅ Đã lưu dữ liệu máy bơm vào database với tốc độ ${command.status === 'On' ? (command.speed || command.value ) : 0}`);
+                        console.log(`✅ Đã lưu dữ liệu máy bơm vào database với tốc độ ${command.status === 'On' ? (command.speed || command.value || 50) : 0}`);
                     } else if (normalizedDeviceType === 'light') {
                     await prisma.lightdata.create({
                         data: {

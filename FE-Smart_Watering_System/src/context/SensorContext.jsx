@@ -1,5 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import socketService from '../services/socketService';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import { useAuth } from './AuthContext'; // Import useAuth hook
 
 // Tên khóa để lưu dữ liệu vào localStorage
 const SENSOR_DATA_KEY = 'smart_watering_system_sensor_data';
@@ -177,6 +180,15 @@ export const useSensorData = () => {
 
 // Provider component
 export const SensorProvider = ({ children }) => {
+  // Get user from AuthContext
+  const { user: authUser } = useAuth();
+  
+  // Add debug logging for authUser
+  useEffect(() => {
+    console.log('SensorContext: Auth user data:', authUser);
+    console.log('SensorContext: User approval status (isAccepted):', authUser?.isAccepted);
+  }, [authUser]);
+  
   // Khởi tạo state với dữ liệu từ localStorage
   const [sensorData, setSensorData] = useState(getSavedSensorData());
   const [prevData, setPrevData] = useState(getSavedPrevData());
@@ -517,10 +529,10 @@ export const SensorProvider = ({ children }) => {
       temperature: sensorData.temperature,
       airHumidity: sensorData.airHumidity,
       pumpWater: {
-        speed: sensorData.pumpWater?.speed 
+        speed: socketData.pumpWater?.speed 
       },
       light: {
-        status: sensorData.light?.status || 'Off'
+        status: socketData.light?.status || 'Off'
       }
     });
     
@@ -854,12 +866,15 @@ export const SensorProvider = ({ children }) => {
         
         // Tải cấu hình ngưỡng từ API nếu có thể
         try {
-          const axios = (await import('axios')).default;
+          // Dynamically import API_ENDPOINTS
           const API_ENDPOINTS = (await import('../services/ApiEndpoints')).default;
-          
-          // Check if user is approved before attempting to fetch config
-          const userData = JSON.parse(localStorage.getItem('userData'));
-          if (!userData || !userData.isAccepted) {
+
+          // Log the current state of authUser
+          console.log('SensorContext: Checking user approval with authUser:', authUser);
+          console.log('SensorContext: Is user approved?', authUser?.isAccepted === true);
+
+          // Check if user is approved properly using the authUser object
+          if (!authUser || authUser.isAccepted !== true) {
             console.log('SensorContext: User not approved yet, skipping config fetch');
             
             // If we can't load config from API, use sensible defaults

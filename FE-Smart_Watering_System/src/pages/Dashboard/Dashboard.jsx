@@ -37,7 +37,8 @@ const Dashboard = () => {
     thresholdConfig,
     setThresholdConfig,
     updateThresholdConfig,
-    checkThresholds
+    checkThresholds,
+    user
   } = useSensorData();
 
   // State cho danh sách thiết bị
@@ -178,9 +179,12 @@ const Dashboard = () => {
     // Lấy cấu hình ngưỡng
     const fetchThresholds = async () => {
       try {
-        // Check if user is approved before attempting to fetch thresholds
-        const currentUserData = JSON.parse(localStorage.getItem('userData'));
-        if (!currentUserData || !currentUserData.isAccepted) {
+        // Add more detailed logging
+        console.log('Dashboard: user object from context:', user);
+        console.log('Dashboard: Checking if user is approved with isAccepted =', user?.isAccepted);
+        
+        // Check if user is approved using the user object from context with strict equality
+        if (!user || user.isAccepted !== true) {
           console.log('Dashboard: User not approved yet, skipping threshold config fetch');
           return;
         }
@@ -272,9 +276,12 @@ const Dashboard = () => {
       const refreshThresholds = async () => {
         console.log('Dashboard: Refreshing threshold configs');
         try {
-          // Check if user is approved before attempting to fetch thresholds
-          const currentUserData = JSON.parse(localStorage.getItem('userData'));
-          if (!currentUserData || !currentUserData.isAccepted) {
+          // Add more detailed logging
+          console.log('Dashboard: Refresh - user object from context:', user);
+          console.log('Dashboard: Refresh - Checking if user is approved with isAccepted =', user?.isAccepted);
+          
+          // Check if user is approved using the user object from context with strict equality
+          if (!user || user.isAccepted !== true) {
             console.log('Dashboard: User not approved yet, skipping threshold config refresh');
             return;
           }
