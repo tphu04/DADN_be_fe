@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const scheduleController = require('../controllers/scheduleController');
 const cron = require('node-cron');
+const moment = require('moment-timezone')
 
 // Hàm khởi tạo cron job để kiểm tra và thực thi lịch trình
 const initScheduleService = () => {
@@ -11,13 +12,13 @@ const initScheduleService = () => {
   cron.schedule('* * * * *', async () => {
     try {
       // Lấy thời gian hiện tại
-      const now = new Date();
+      const now = moment().tz('Asia/Ho_Chi_Minh');
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
       const currentTimeString = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
       
       // Lấy ngày trong tuần hiện tại (0: Chủ nhật, 1: Thứ 2, ...)
-      const dayOfWeek = now.getDay();
+      const dayOfWeek = now.day();
       const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
       const currentDay = dayNames[dayOfWeek];
       

@@ -43,6 +43,7 @@
     "gh-pages": "^6.3.0",
     "jsonwebtoken": "^9.0.2",
     "mailchecker": "^6.0.17",
+    "moment-timezone": "^0.5.48",
     "morgan": "^1.10.0",
     "mqtt": "^5.3.6",
     "mysql2": "^3.13.0",
