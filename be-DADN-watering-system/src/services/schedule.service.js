@@ -13,8 +13,8 @@ const initScheduleService = () => {
     try {
       // Lấy thời gian hiện tại
       const now = moment().tz('Asia/Ho_Chi_Minh');
-      const currentHour = now.getHours();
-      const currentMinute = now.getMinutes();
+      const currentHour = now.hour();
+      const currentMinute = now.minute();
       const currentTimeString = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
       
       // Lấy ngày trong tuần hiện tại (0: Chủ nhật, 1: Thứ 2, ...)
