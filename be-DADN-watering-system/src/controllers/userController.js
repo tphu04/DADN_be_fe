@@ -646,6 +646,50 @@ const deleteUser = async (req, res) => {
   }
 };
 
+// Update user password
+const updateUserPassword = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { currentPassword, newPassword } = req.body;
+    
+    // Verify current password
+    const user = await prisma.user.findUnique({
+      where: { id: Number(userId) }
+    });
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Check if current password matches
+    if (user.password !== currentPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password is incorrect'
+      });
+    }
+    
+    // Update password using the service provided by authService
+    const { changePassword } = require('./auth/authService');
+    await changePassword(userId, newPassword);
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Password updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating password:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error updating password',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getAllUsers,
   updateUserAccess,
@@ -654,5 +698,6 @@ module.exports = {
   createUser,
   updateUser,
   deleteUser,
-  updateUserProfile
+  updateUserProfile,
+  updateUserPassword
 };

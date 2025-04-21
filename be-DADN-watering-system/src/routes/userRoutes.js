@@ -8,7 +8,8 @@ const {
   createUser,
   updateUser,
   deleteUser,
-  updateUserProfile
+  updateUserProfile,
+  updateUserPassword
 } = require('../controllers/userController');
 
 const router = express.Router();
@@ -17,6 +18,8 @@ const router = express.Router();
 router.get('/profile', authenticateToken, getCurrentUser);
 // Thêm route cho người dùng cập nhật thông tin cá nhân
 router.put('/profile', authenticateToken, updateUserProfile);
+// Thêm route cho người dùng cập nhật mật khẩu
+router.put('/password', authenticateToken, updateUserPassword);
 
 // Admin routes - Cần quyền admin
 router.get('/', authenticateToken, authorizeAdmin, getAllUsers);
