@@ -26,7 +26,7 @@ const ConfigDevice = () => {
   const [loading, setLoading] = useState(false);
   const [fetchingConfig, setFetchingConfig] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
-  
+
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -54,7 +54,7 @@ const ConfigDevice = () => {
     const fetchCurrentConfig = async () => {
       try {
         setFetchingConfig(true);
-        
+
         // Skip API call if user is not approved
         if (!hasPermission) {
           console.log('ConfigDevice: User not approved, skipping config fetch');
@@ -62,10 +62,10 @@ const ConfigDevice = () => {
           setFetchingConfig(false);
           return;
         }
-        
+
         // Try to get the device-specific configuration if we have a deviceId
         const deviceId = localStorage.getItem("selectedDeviceId") || 'current';
-        
+
         const response = await axios.get(
           API_ENDPOINTS.DEVICES.GET_CONFIG(deviceId),
           {
@@ -76,15 +76,15 @@ const ConfigDevice = () => {
         );
 
         console.log('Cấu hình nhận được từ API:', response.data);
-        
+
         if (response.data && response.data.success) {
           // Kiểm tra cấu trúc dữ liệu để xử lý phù hợp
           let configData;
-          
+
           if (response.data.config) {
             // Cấu trúc mới
             configData = response.data.config;
-            
+
             setConfigs({
               soilMoisture: {
                 min: configData.soilMoisture?.min ?? defaultConfig.soilMoisture.min,
@@ -101,11 +101,11 @@ const ConfigDevice = () => {
             });
             console.log('Đã cập nhật cấu hình từ API (cấu trúc mới)');
             setLastUpdated(new Date().toLocaleString());
-          } 
+          }
           else if (response.data.data) {
             // Cấu trúc cũ
             configData = response.data.data;
-            
+
             setConfigs({
               soilMoisture: {
                 min: configData.soilMoistureMin ?? defaultConfig.soilMoisture.min,
@@ -157,7 +157,7 @@ const ConfigDevice = () => {
 
     try {
       setLoading(true);
-      
+
       // Ensure all values are valid numbers
       const safeConfigs = {
         soilMoisture: {
@@ -173,7 +173,7 @@ const ConfigDevice = () => {
           max: Number(configs.airHumidity.max) || 80
         }
       };
-      
+
       // Format data for API - supporting both formats
       // Cấu trúc mới (khớp với Dashboard)
       const newFormatConfig = {
@@ -190,7 +190,7 @@ const ConfigDevice = () => {
           max: safeConfigs.airHumidity.max
         }
       };
-      
+
       // Lưu cấu hình vào hệ thống
       console.log('Lưu cấu hình:', newFormatConfig);
       const saveConfigResponse = await axios.post(
@@ -203,14 +203,14 @@ const ConfigDevice = () => {
           }
         }
       );
-      
+
       if (!saveConfigResponse.data || !saveConfigResponse.data.success) {
         throw new Error(saveConfigResponse.data?.message || "Không thể lưu cấu hình");
       }
-      
+
       toast.success("Đã lưu cấu hình thành công");
       setLastUpdated(new Date().toLocaleString());
-      
+
     } catch (error) {
       console.error("Error saving device configs:", error);
       toast.error("Lỗi khi lưu cấu hình thiết bị: " + (error.response?.data?.message || error.message));
@@ -223,7 +223,7 @@ const ConfigDevice = () => {
     if (!checkPermission()) {
       return;
     }
-    
+
     setConfigs(defaultConfig);
     toast.info("Đã khôi phục về cấu hình mặc định");
   };
@@ -232,7 +232,7 @@ const ConfigDevice = () => {
   const handleRefreshConfig = async () => {
     try {
       setFetchingConfig(true);
-      
+
       // Skip API call if user is not approved
       if (!hasPermission) {
         console.log('ConfigDevice: User not approved, skipping config refresh');
@@ -240,12 +240,12 @@ const ConfigDevice = () => {
         setFetchingConfig(false);
         return;
       }
-      
+
       toast.info("Đang tải lại cấu hình mới nhất...");
-      
+
       // Try to get the device-specific configuration if we have a deviceId
       const deviceId = localStorage.getItem("selectedDeviceId") || 'current';
-      
+
       const response = await axios.get(
         API_ENDPOINTS.DEVICES.GET_CONFIG(deviceId),
         {
@@ -256,15 +256,15 @@ const ConfigDevice = () => {
       );
 
       console.log('Đã tải lại cấu hình từ API:', response.data);
-      
+
       if (response.data && response.data.success) {
         // Kiểm tra cấu trúc dữ liệu để xử lý phù hợp
         let configData;
-        
+
         if (response.data.config) {
           // Cấu trúc mới
           configData = response.data.config;
-          
+
           setConfigs({
             soilMoisture: {
               min: configData.soilMoisture?.min ?? defaultConfig.soilMoisture.min,
@@ -281,11 +281,11 @@ const ConfigDevice = () => {
           });
           toast.success("Đã tải cấu hình mới nhất từ server");
           setLastUpdated(new Date().toLocaleString());
-        } 
+        }
         else if (response.data.data) {
           // Cấu trúc cũ
           configData = response.data.data;
-          
+
           setConfigs({
             soilMoisture: {
               min: configData.soilMoistureMin ?? defaultConfig.soilMoisture.min,
@@ -324,10 +324,10 @@ const ConfigDevice = () => {
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
           Cấu hình thiết bị cảm biến
         </h1>
-        
+
         {/* Thêm nút Refresh */}
-        <Button 
-          icon={<SyncOutlined />} 
+        <Button
+          icon={<SyncOutlined />}
           onClick={handleRefreshConfig}
           loading={fetchingConfig}
         >
@@ -366,7 +366,7 @@ const ConfigDevice = () => {
             title="Ngưỡng độ ẩm đất (%)"
             value={configs.soilMoisture}
             onChange={(value) => hasPermission && handleRangeChange('soilMoisture', value)}
-            min={0}
+            min={-10}
             max={100}
             step={1}
             unit="%"
@@ -376,7 +376,7 @@ const ConfigDevice = () => {
           />
 
           {/* Nhiệt độ */}
-          <SliderCard 
+          <SliderCard
             title="Ngưỡng nhiệt độ (°C)"
             value={configs.temperature}
             onChange={(value) => hasPermission && handleRangeChange('temperature', value)}
@@ -390,7 +390,7 @@ const ConfigDevice = () => {
           />
 
           {/* Độ ẩm không khí */}
-          <SliderCard 
+          <SliderCard
             title="Ngưỡng độ ẩm không khí (%)"
             value={configs.airHumidity}
             onChange={(value) => hasPermission && handleRangeChange('airHumidity', value)}
@@ -415,7 +415,7 @@ const ConfigDevice = () => {
             Khôi phục mặc định
           </Button>
         </Tooltip>
-        
+
         <Tooltip title={!hasPermission ? "Tài khoản đang chờ phê duyệt" : "Lưu cấu hình hiện tại"}>
           <Button
             type="primary"
